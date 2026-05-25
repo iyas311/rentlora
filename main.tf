@@ -553,7 +553,7 @@ resource "aws_launch_template" "lt_frontend" {
 resource "aws_autoscaling_group" "asg_backend" {
   name                      = "asg-backend"
   min_size                  = 1
-  max_size                  = 2
+  max_size                  = 1
   desired_capacity          = 1
   vpc_zone_identifier       = aws_subnet.backend[*].id
   target_group_arns         = [aws_lb_target_group.tg_property.arn, aws_lb_target_group.tg_booking.arn]
@@ -568,7 +568,7 @@ resource "aws_autoscaling_group" "asg_backend" {
 resource "aws_autoscaling_group" "asg_frontend" {
   name                      = "asg-frontend"
   min_size                  = 1
-  max_size                  = 2
+  max_size                  = 1
   desired_capacity          = 1
   vpc_zone_identifier       = aws_subnet.frontend[*].id
   target_group_arns         = [aws_lb_target_group.tg_frontend.arn]
@@ -600,7 +600,7 @@ resource "aws_launch_template" "lt_rental" {
 resource "aws_autoscaling_group" "asg_rental" {
   name                      = "asg-rental"
   min_size                  = 1
-  max_size                  = 2
+  max_size                  = 1
   desired_capacity          = 1
   vpc_zone_identifier       = aws_subnet.frontend[*].id
   target_group_arns         = [aws_lb_target_group.tg_rental.arn]
