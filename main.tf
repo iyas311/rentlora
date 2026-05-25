@@ -10,7 +10,7 @@ locals {
   backend_cidrs  = ["10.0.21.0/24", "10.0.22.0/24"]
   db_cidrs       = ["10.0.31.0/24", "10.0.32.0/24"]
 
-  ami_id      = "ami-REPLACE"
+  ami_id      = "ami-091138d0f0d41ff90"
   key_name    = "iyas-private"
   repo_url    = "https://github.com/iyas311/rentlora.git"
   db_password = "Iy@s2458"
@@ -171,7 +171,8 @@ resource "aws_launch_template" "lt_property" {
   iam_instance_profile { name = aws_iam_instance_profile.ec2_profile.name }
   user_data = base64encode(<<-EOF
     #!/bin/bash
-    dnf install -y git python3.11 python3.11-pip gcc libpq-devel
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y git python3.11 python3-pip build-essential libpq-dev
     mkdir -p /opt
     git clone ${local.repo_url} /opt/rentlora || true
     cd /opt/rentlora/property-service
@@ -209,7 +210,8 @@ resource "aws_launch_template" "lt_booking" {
   iam_instance_profile { name = aws_iam_instance_profile.ec2_profile.name }
   user_data = base64encode(<<-EOF
     #!/bin/bash
-    dnf install -y git python3.11 python3.11-pip gcc libpq-devel
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y git python3.11 python3-pip build-essential libpq-dev
     mkdir -p /opt
     git clone ${local.repo_url} /opt/rentlora || true
     cd /opt/rentlora/booking-service
@@ -246,7 +248,8 @@ resource "aws_launch_template" "lt_frontend" {
   iam_instance_profile { name = aws_iam_instance_profile.ec2_profile.name }
   user_data = base64encode(<<-EOF
     #!/bin/bash
-    dnf install -y git nginx nodejs npm
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y git nginx nodejs npm
     mkdir -p /opt
     git clone ${local.repo_url} /opt/rentlora || true
     cd /opt/rentlora/frontend
@@ -330,14 +333,6 @@ resource "aws_lb_listener" "external80" {
   load_balancer_arn = aws_lb.external.arn
   port = 80
   protocol = "HTTP"
-  default_action { type = "redirect" redirect { port = "443" protocol = "HTTPS" status_code = "HTTP_301" } }
-}
-resource "aws_lb_listener" "external443" {
-  load_balancer_arn = aws_lb.external.arn
-  port = 443
-  protocol = "HTTPS"
-  ssl_policy      = "ELBSecurityPolicy-2016-08"
-  certificate_arn = "ACM_CERT_ARN_REPLACE"
   default_action { type = "forward" target_group_arn = aws_lb_target_group.tg_frontend.arn }
 }
 
