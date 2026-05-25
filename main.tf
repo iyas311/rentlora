@@ -12,8 +12,8 @@ locals {
 
   ami_id      = "ami-REPLACE"
   key_name    = "iyas-private"
-  repo_url    = "https://github.com/REPLACE/rentlora.git"
-  db_password = "REPLACE_STRONG_PASSWORD"
+  repo_url    = "https://github.com/iyas311/rentlora.git"
+  db_password = "Iy@s2458"
 }
 
 provider "aws" { region = local.region }
