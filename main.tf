@@ -461,13 +461,20 @@ resource "aws_launch_template" "lt_backend" {
   vpc_security_group_ids = [aws_security_group.backend.id]
   user_data = base64encode(<<-EOF
     #!/bin/bash
-    # force refresh 2
+    # force refresh 3
     apt-get update -y
-    DEBIAN_FRONTEND=noninteractive apt-get install -y git python3 python3-pip build-essential libpq-dev
+    DEBIAN_FRONTEND=noninteractive apt-get install -y git python3 python3-pip build-essential libpq-dev postgresql-client
     mkdir -p /opt
     git clone ${local.repo_url} /opt/rentlora || true
-    cd /opt/rentlora/property-service && pip3 install -r requirements.txt
-    cd /opt/rentlora/booking-service && pip3 install -r requirements.txt
+    
+    # Force install python dependencies
+    cd /opt/rentlora/property-service && pip3 install --break-system-packages -r requirements.txt
+    cd /opt/rentlora/booking-service && pip3 install --break-system-packages -r requirements.txt
+    
+    # Automatically initialize Database Schema
+    export PGPASSWORD="${local.db_password}"
+    psql -h ${aws_db_instance.main.address} -U rentlora_admin -d rentlora -f /opt/rentlora/schema.sql || true
+    
     cat > /opt/rentlora/property-service/.env <<ENV
     DATABASE_URL=postgresql+asyncpg://rentlora_admin:${local.db_password}@${aws_db_instance.main.address}:5432/rentlora
     JWT_SECRET=${local.jwt_secret}
@@ -488,7 +495,7 @@ resource "aws_launch_template" "lt_backend" {
     [Service]
     WorkingDirectory=/opt/rentlora/property-service
     EnvironmentFile=/opt/rentlora/property-service/.env
-    ExecStart=/usr/bin/python3 -m uvicorn main:app --host 0.0.0.0 --port 8001 --workers 2
+    ExecStart=/usr/local/bin/uvicorn main:app --host 0.0.0.0 --port 8001 --workers 2
     Restart=always
     [Install]
     WantedBy=multi-user.target
@@ -500,7 +507,7 @@ resource "aws_launch_template" "lt_backend" {
     [Service]
     WorkingDirectory=/opt/rentlora/booking-service
     EnvironmentFile=/opt/rentlora/booking-service/.env
-    ExecStart=/usr/bin/python3 -m uvicorn main:app --host 0.0.0.0 --port 8002 --workers 2
+    ExecStart=/usr/local/bin/uvicorn main:app --host 0.0.0.0 --port 8002 --workers 2
     Restart=always
     [Install]
     WantedBy=multi-user.target
@@ -527,6 +534,7 @@ resource "aws_launch_template" "lt_frontend" {
       
       location / { try_files $uri $uri/ /index.html; }
       
+      location /uploads { proxy_pass http://${aws_lb.internal.dns_name}; }
       location /properties { proxy_pass http://${aws_lb.internal.dns_name}; }
       location /search { proxy_pass http://${aws_lb.internal.dns_name}; }
       location /reviews { proxy_pass http://${aws_lb.internal.dns_name}; }
