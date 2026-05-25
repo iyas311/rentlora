@@ -1,12 +1,4 @@
-terraform {
-  required_version = ">= 1.5.0"
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.0"
-    }
-  }
-}
+
 
 locals {
   region         = "us-east-1"
@@ -21,8 +13,8 @@ locals {
   ami_id      = "ami-091138d0f0d41ff90"
   key_name    = "iyas-private"
   repo_url    = "https://github.com/iyas311/rentlora.git"
-  db_password = "Iy@s2458"
-  jwt_secret  = "REPLACE_WITH_SHARED_JWT_SECRET"
+  db_password = "IyAs2458#Safe"
+  jwt_secret  = "secret"
 }
 
 provider "aws" {
@@ -137,28 +129,33 @@ resource "aws_route_table_association" "db" {
 }
 
 resource "aws_security_group" "ext_alb" {
-  name   = "sg-ext-alb"
+  name   = "rentlora-ext-alb-sg"
   vpc_id = aws_vpc.main.id
+  tags   = { Name = "sg-ext-alb" }
 }
 
 resource "aws_security_group" "frontend" {
-  name   = "sg-frontend"
+  name   = "rentlora-frontend-sg"
   vpc_id = aws_vpc.main.id
+  tags   = { Name = "sg-frontend" }
 }
 
 resource "aws_security_group" "int_alb" {
-  name   = "sg-int-alb"
+  name   = "rentlora-int-alb-sg"
   vpc_id = aws_vpc.main.id
+  tags   = { Name = "sg-int-alb" }
 }
 
 resource "aws_security_group" "backend" {
-  name   = "sg-backend"
+  name   = "rentlora-backend-sg"
   vpc_id = aws_vpc.main.id
+  tags   = { Name = "sg-backend" }
 }
 
 resource "aws_security_group" "db" {
-  name   = "sg-db"
+  name   = "rentlora-db-sg"
   vpc_id = aws_vpc.main.id
+  tags   = { Name = "sg-db" }
 }
 
 resource "aws_security_group_rule" "ext80" {
@@ -215,6 +212,24 @@ resource "aws_security_group_rule" "be8002" {
   security_group_id        = aws_security_group.backend.id
 }
 
+resource "aws_security_group_rule" "be8001_from_ext_alb" {
+  type                     = "ingress"
+  from_port                = 8001
+  to_port                  = 8001
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.ext_alb.id
+  security_group_id        = aws_security_group.backend.id
+}
+
+resource "aws_security_group_rule" "be8002_from_ext_alb" {
+  type                     = "ingress"
+  from_port                = 8002
+  to_port                  = 8002
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.ext_alb.id
+  security_group_id        = aws_security_group.backend.id
+}
+
 resource "aws_security_group_rule" "db5432" {
   type                     = "ingress"
   from_port                = 5432
@@ -224,33 +239,49 @@ resource "aws_security_group_rule" "db5432" {
   security_group_id        = aws_security_group.db.id
 }
 
-resource "aws_iam_role" "ec2_role" {
-  name = "rentlora-ec2-role"
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17",
-    Statement = [{
-      Effect = "Allow",
-      Action = "sts:AssumeRole",
-      Principal = {
-        Service = "ec2.amazonaws.com"
-      }
-    }]
-  })
+resource "aws_security_group_rule" "ext_alb_egress_all" {
+  type              = "egress"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.ext_alb.id
 }
 
-resource "aws_iam_role_policy_attachment" "cw" {
-  role       = aws_iam_role.ec2_role.name
-  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+resource "aws_security_group_rule" "frontend_egress_all" {
+  type              = "egress"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.frontend.id
 }
 
-resource "aws_iam_role_policy_attachment" "ssm" {
-  role       = aws_iam_role.ec2_role.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+resource "aws_security_group_rule" "int_alb_egress_all" {
+  type              = "egress"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.int_alb.id
 }
 
-resource "aws_iam_instance_profile" "ec2_profile" {
-  name = "rentlora-ec2-profile"
-  role = aws_iam_role.ec2_role.name
+resource "aws_security_group_rule" "backend_egress_all" {
+  type              = "egress"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.backend.id
+}
+
+resource "aws_security_group_rule" "db_egress_all" {
+  type              = "egress"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.db.id
 }
 
 resource "aws_db_subnet_group" "db_subnet_group" {
@@ -336,7 +367,7 @@ resource "aws_lb_listener_rule" "r1" {
   }
   condition {
     path_pattern {
-      values = ["/api/properties*"]
+      values = ["/properties*"]
     }
   }
 }
@@ -350,7 +381,7 @@ resource "aws_lb_listener_rule" "r2" {
   }
   condition {
     path_pattern {
-      values = ["/api/search*"]
+      values = ["/search*"]
     }
   }
 }
@@ -364,7 +395,7 @@ resource "aws_lb_listener_rule" "r3" {
   }
   condition {
     path_pattern {
-      values = ["/api/reviews*"]
+      values = ["/reviews*"]
     }
   }
 }
@@ -378,7 +409,7 @@ resource "aws_lb_listener_rule" "r4" {
   }
   condition {
     path_pattern {
-      values = ["/api/auth*"]
+      values = ["/auth*"]
     }
   }
 }
@@ -392,7 +423,7 @@ resource "aws_lb_listener_rule" "r5" {
   }
   condition {
     path_pattern {
-      values = ["/api/users*"]
+      values = ["/users*"]
     }
   }
 }
@@ -406,32 +437,35 @@ resource "aws_lb_listener_rule" "r6" {
   }
   condition {
     path_pattern {
-      values = ["/api/bookings*"]
+      values = ["/bookings*"]
     }
   }
 }
 
-resource "aws_launch_template" "lt_property" {
-  name_prefix            = "lt-property-"
+resource "aws_launch_template" "lt_backend" {
+  name_prefix            = "lt-backend-"
   image_id               = local.ami_id
   instance_type          = "t3.small"
   key_name               = local.key_name
   vpc_security_group_ids = [aws_security_group.backend.id]
-  iam_instance_profile {
-    name = aws_iam_instance_profile.ec2_profile.name
-  }
   user_data = base64encode(<<-EOF
     #!/bin/bash
     apt-get update -y
     DEBIAN_FRONTEND=noninteractive apt-get install -y git python3 python3-pip build-essential libpq-dev
     mkdir -p /opt
     git clone ${local.repo_url} /opt/rentlora || true
-    cd /opt/rentlora/property-service
-    pip3 install -r requirements.txt
+    cd /opt/rentlora/property-service && pip3 install -r requirements.txt
+    cd /opt/rentlora/booking-service && pip3 install -r requirements.txt
     cat > /opt/rentlora/property-service/.env <<ENV
     DATABASE_URL=postgresql+asyncpg://rentlora_admin:${local.db_password}@${aws_db_instance.main.address}:5432/rentlora
     JWT_SECRET=${local.jwt_secret}
     UPLOADS_DIR=./uploads
+    AWS_DEFAULT_REGION=us-east-1
+    ENV=production
+    ENV
+    cat > /opt/rentlora/booking-service/.env <<ENV
+    DATABASE_URL=postgresql+asyncpg://rentlora_admin:${local.db_password}@${aws_db_instance.main.address}:5432/rentlora
+    JWT_SECRET=${local.jwt_secret}
     AWS_DEFAULT_REGION=us-east-1
     ENV=production
     ENV
@@ -441,53 +475,26 @@ resource "aws_launch_template" "lt_property" {
     After=network.target
     [Service]
     WorkingDirectory=/opt/rentlora/property-service
-    ExecStart=/usr/local/bin/uvicorn main:app --host 0.0.0.0 --port 8001 --workers 2
+    EnvironmentFile=/opt/rentlora/property-service/.env
+    ExecStart=/usr/bin/python3 -m uvicorn main:app --host 0.0.0.0 --port 8001 --workers 2
     Restart=always
     [Install]
     WantedBy=multi-user.target
     UNIT
-    systemctl daemon-reload
-    systemctl enable --now property
-  EOF
-  )
-}
-
-resource "aws_launch_template" "lt_booking" {
-  name_prefix            = "lt-booking-"
-  image_id               = local.ami_id
-  instance_type          = "t3.small"
-  key_name               = local.key_name
-  vpc_security_group_ids = [aws_security_group.backend.id]
-  iam_instance_profile {
-    name = aws_iam_instance_profile.ec2_profile.name
-  }
-  user_data = base64encode(<<-EOF
-    #!/bin/bash
-    apt-get update -y
-    DEBIAN_FRONTEND=noninteractive apt-get install -y git python3 python3-pip build-essential libpq-dev
-    mkdir -p /opt
-    git clone ${local.repo_url} /opt/rentlora || true
-    cd /opt/rentlora/booking-service
-    pip3 install -r requirements.txt
-    cat > /opt/rentlora/booking-service/.env <<ENV
-    DATABASE_URL=postgresql+asyncpg://rentlora_admin:${local.db_password}@${aws_db_instance.main.address}:5432/rentlora
-    JWT_SECRET=${local.jwt_secret}
-    AWS_DEFAULT_REGION=us-east-1
-    ENV=production
-    ENV
     cat > /etc/systemd/system/booking.service <<UNIT
     [Unit]
     Description=Booking Service
     After=network.target
     [Service]
     WorkingDirectory=/opt/rentlora/booking-service
-    ExecStart=/usr/local/bin/uvicorn main:app --host 0.0.0.0 --port 8002 --workers 2
+    EnvironmentFile=/opt/rentlora/booking-service/.env
+    ExecStart=/usr/bin/python3 -m uvicorn main:app --host 0.0.0.0 --port 8002 --workers 2
     Restart=always
     [Install]
     WantedBy=multi-user.target
     UNIT
     systemctl daemon-reload
-    systemctl enable --now booking
+    systemctl enable --now property booking
   EOF
   )
 }
@@ -498,58 +505,43 @@ resource "aws_launch_template" "lt_frontend" {
   instance_type          = "t3.small"
   key_name               = local.key_name
   vpc_security_group_ids = [aws_security_group.frontend.id]
-  iam_instance_profile {
-    name = aws_iam_instance_profile.ec2_profile.name
-  }
   user_data = base64encode(<<-EOF
     #!/bin/bash
     apt-get update -y
-    DEBIAN_FRONTEND=noninteractive apt-get install -y git nginx nodejs npm
+    DEBIAN_FRONTEND=noninteractive apt-get install -y git nginx curl
+    curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+    apt-get install -y nodejs
     mkdir -p /opt
     git clone ${local.repo_url} /opt/rentlora || true
     cd /opt/rentlora/frontend
     npm install
     npm run build
     cp -r dist/* /usr/share/nginx/html/
+    rm -f /etc/nginx/sites-enabled/default
+    rm -f /etc/nginx/conf.d/default.conf
     cat > /etc/nginx/conf.d/rentlora.conf <<NGINX
     server {
       listen 80;
       root /usr/share/nginx/html;
       location / { try_files \$uri \$uri/ /index.html; }
-      location /api/ { proxy_pass http://${aws_lb.internal.dns_name}; }
     }
     NGINX
-    systemctl enable --now nginx
+    nginx -t && systemctl enable --now nginx
   EOF
   )
 }
 
-resource "aws_autoscaling_group" "asg_property" {
-  name                      = "asg-property"
+resource "aws_autoscaling_group" "asg_backend" {
+  name                      = "asg-backend"
   min_size                  = 1
-  max_size                  = 4
+  max_size                  = 2
   desired_capacity          = 1
   vpc_zone_identifier       = aws_subnet.backend[*].id
-  target_group_arns         = [aws_lb_target_group.tg_property.arn]
+  target_group_arns         = [aws_lb_target_group.tg_property.arn, aws_lb_target_group.tg_booking.arn]
   health_check_type         = "ELB"
   health_check_grace_period = 120
   launch_template {
-    id      = aws_launch_template.lt_property.id
-    version = "$Latest"
-  }
-}
-
-resource "aws_autoscaling_group" "asg_booking" {
-  name                      = "asg-booking"
-  min_size                  = 1
-  max_size                  = 4
-  desired_capacity          = 1
-  vpc_zone_identifier       = aws_subnet.backend[*].id
-  target_group_arns         = [aws_lb_target_group.tg_booking.arn]
-  health_check_type         = "ELB"
-  health_check_grace_period = 120
-  launch_template {
-    id      = aws_launch_template.lt_booking.id
+    id      = aws_launch_template.lt_backend.id
     version = "$Latest"
   }
 }
@@ -557,34 +549,22 @@ resource "aws_autoscaling_group" "asg_booking" {
 resource "aws_autoscaling_group" "asg_frontend" {
   name                      = "asg-frontend"
   min_size                  = 1
-  max_size                  = 4
+  max_size                  = 2
   desired_capacity          = 1
   vpc_zone_identifier       = aws_subnet.frontend[*].id
   target_group_arns         = [aws_lb_target_group.tg_frontend.arn]
   health_check_type         = "ELB"
-  health_check_grace_period = 60
+  health_check_grace_period = 600
   launch_template {
     id      = aws_launch_template.lt_frontend.id
     version = "$Latest"
   }
 }
 
-resource "aws_autoscaling_policy" "property_cpu" {
-  name                   = "asg-property-cpu"
+resource "aws_autoscaling_policy" "backend_cpu" {
+  name                   = "asg-backend-cpu"
   policy_type            = "TargetTrackingScaling"
-  autoscaling_group_name = aws_autoscaling_group.asg_property.name
-  target_tracking_configuration {
-    predefined_metric_specification {
-      predefined_metric_type = "ASGAverageCPUUtilization"
-    }
-    target_value = 60
-  }
-}
-
-resource "aws_autoscaling_policy" "booking_cpu" {
-  name                   = "asg-booking-cpu"
-  policy_type            = "TargetTrackingScaling"
-  autoscaling_group_name = aws_autoscaling_group.asg_booking.name
+  autoscaling_group_name = aws_autoscaling_group.asg_backend.name
   target_tracking_configuration {
     predefined_metric_specification {
       predefined_metric_type = "ASGAverageCPUUtilization"
@@ -622,6 +602,35 @@ resource "aws_lb_listener" "external80" {
     target_group_arn = aws_lb_target_group.tg_frontend.arn
   }
 }
+
+resource "aws_lb_listener_rule" "ext_properties_paths" {
+  listener_arn = aws_lb_listener.external80.arn
+  priority     = 10
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.tg_property.arn
+  }
+  condition {
+    path_pattern {
+      values = ["/properties*", "/search*", "/reviews*"]
+    }
+  }
+}
+
+resource "aws_lb_listener_rule" "ext_booking_paths" {
+  listener_arn = aws_lb_listener.external80.arn
+  priority     = 11
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.tg_booking.arn
+  }
+  condition {
+    path_pattern {
+      values = ["/auth*", "/users*", "/bookings*"]
+    }
+  }
+}
+
 
 output "external_alb_dns" {
   value = aws_lb.external.dns_name
