@@ -461,6 +461,7 @@ resource "aws_launch_template" "lt_backend" {
   vpc_security_group_ids = [aws_security_group.backend.id]
   user_data = base64encode(<<-EOF
     #!/bin/bash
+    # force refresh 2
     apt-get update -y
     DEBIAN_FRONTEND=noninteractive apt-get install -y git python3 python3-pip build-essential libpq-dev
     mkdir -p /opt
@@ -518,6 +519,8 @@ resource "aws_launch_template" "lt_frontend" {
   vpc_security_group_ids = [aws_security_group.frontend.id]
   user_data = base64encode(<<-EOF
     #!/bin/bash
+    # force refresh 2
+    # force refresh 1
     apt-get update -y
     DEBIAN_FRONTEND=noninteractive apt-get install -y git nginx curl
     curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
@@ -563,6 +566,12 @@ resource "aws_autoscaling_group" "asg_backend" {
     id      = aws_launch_template.lt_backend.id
     version = "$Latest"
   }
+  instance_refresh {
+    strategy = "Rolling"
+    preferences {
+      min_healthy_percentage = 0
+    }
+  }
 }
 
 resource "aws_autoscaling_group" "asg_frontend" {
@@ -578,6 +587,12 @@ resource "aws_autoscaling_group" "asg_frontend" {
     id      = aws_launch_template.lt_frontend.id
     version = "$Latest"
   }
+  instance_refresh {
+    strategy = "Rolling"
+    preferences {
+      min_healthy_percentage = 0
+    }
+  }
 }
 
 resource "aws_launch_template" "lt_rental" {
@@ -588,6 +603,7 @@ resource "aws_launch_template" "lt_rental" {
   vpc_security_group_ids = [aws_security_group.frontend.id]
   user_data = base64encode(<<-EOF
     #!/bin/bash
+    # force refresh 2
     apt-get update -y
     DEBIAN_FRONTEND=noninteractive apt-get install -y nginx
     mkdir -p /var/www/html/rental
@@ -609,6 +625,12 @@ resource "aws_autoscaling_group" "asg_rental" {
   launch_template {
     id      = aws_launch_template.lt_rental.id
     version = "$Latest"
+  }
+  instance_refresh {
+    strategy = "Rolling"
+    preferences {
+      min_healthy_percentage = 0
+    }
   }
 }
 
