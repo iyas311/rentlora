@@ -519,8 +519,8 @@ resource "aws_launch_template" "lt_frontend" {
   vpc_security_group_ids = [aws_security_group.frontend.id]
   user_data = base64encode(<<-EOF
     #!/bin/bash
-    # force refresh to trigger ASG 2
-    cat > /etc/nginx/conf.d/rentlora.conf <<NGINX
+    # force refresh to trigger ASG 3
+    cat > /etc/nginx/conf.d/rentlora.conf <<'NGINX'
     server {
       listen 80;
       root /var/www/html;
