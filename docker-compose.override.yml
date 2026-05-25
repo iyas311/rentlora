@@ -1,0 +1,35 @@
+version: "3.9"
+
+services:
+  postgres:
+    volumes:
+      - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d rentlora"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  property-service:
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  booking-service:
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  local-alb:
+    image: nginx:alpine
+    volumes:
+      - ./local-alb.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - property-service
+      - booking-service
+
+  frontend:
+    environment:
+      INTERNAL_ALB_DNS: local-alb:80
+    depends_on:
+      - local-alb

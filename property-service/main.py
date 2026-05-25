@@ -43,6 +43,6 @@ async def health():
     return {"status": "ok", "service": "property-service", "db": "connected"}
 
 
-app.include_router(properties_router, prefix="/api")
-app.include_router(search_router, prefix="/api")
-app.include_router(reviews_router, prefix="/api")
+app.include_router(properties_router)
+app.include_router(search_router)
+app.include_router(reviews_router)
