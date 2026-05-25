@@ -342,7 +342,7 @@ resource "aws_lb_target_group" "tg_rental" {
   protocol = "HTTP"
   vpc_id   = aws_vpc.main.id
   health_check {
-    path    = "/"
+    path    = "/rental/"
     matcher = "200-399"
   }
 }
@@ -590,7 +590,8 @@ resource "aws_launch_template" "lt_rental" {
     #!/bin/bash
     apt-get update -y
     DEBIAN_FRONTEND=noninteractive apt-get install -y nginx
-    echo "<html><body><div style='text-align: center; font-family: sans-serif; margin-top: 50px;'><h1>Rental Sub-App</h1><p>This is a separate application routed by the External ALB!</p></div></body></html>" > /var/www/html/index.nginx-debian.html
+    mkdir -p /var/www/html/rental
+    echo "<html><body><div style='text-align: center; font-family: sans-serif; margin-top: 50px;'><h1>Rental Sub-App</h1><p>This is a separate application routed by the External ALB via Path-Based Routing!</p></div></body></html>" > /var/www/html/rental/index.html
     systemctl enable --now nginx
   EOF
   )
