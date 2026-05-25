@@ -590,11 +590,52 @@ resource "aws_launch_template" "lt_rental" {
   vpc_security_group_ids = [aws_security_group.frontend.id]
   user_data = base64encode(<<-EOF
     #!/bin/bash
-    # force refresh 2
+    # force refresh 3
     apt-get update -y
     DEBIAN_FRONTEND=noninteractive apt-get install -y nginx
     mkdir -p /var/www/html/rental
-    echo "<html><body><div style='text-align: center; font-family: sans-serif; margin-top: 50px;'><h1>Rental Sub-App</h1><p>This is a separate application routed by the External ALB via Path-Based Routing!</p></div></body></html>" > /var/www/html/rental/index.html
+    cat > /var/www/html/rental/index.html <<'HTML'
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Rentlora | Premium Stays</title>
+        <style>
+            * { box-sizing: border-box; }
+            body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif; background: #ffffff; color: #222222; }
+            header { padding: 20px 40px; border-bottom: 1px solid #ebebeb; display: flex; justify-content: space-between; align-items: center; }
+            .logo { font-size: 24px; font-weight: 800; color: #FF385C; letter-spacing: -1px; text-decoration: none; }
+            .hero { padding: 80px 40px; text-align: center; background: linear-gradient(180deg, #fff 0%, #f7f7f7 100%); }
+            h1 { font-size: 48px; font-weight: 800; margin: 0 0 20px; line-height: 1.2; letter-spacing: -1px; }
+            p { font-size: 20px; color: #717171; margin-bottom: 40px; max-width: 600px; margin-left: auto; margin-right: auto; line-height: 1.5; }
+            .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 30px; padding: 40px; max-width: 1200px; margin: 0 auto; }
+            .card { border-radius: 12px; overflow: hidden; cursor: pointer; transition: transform 0.2s; }
+            .card:hover { transform: translateY(-5px); }
+            .img-placeholder { height: 200px; background: #e0e0e0; border-radius: 12px; margin-bottom: 12px; }
+            .title { font-weight: 600; font-size: 16px; margin-bottom: 4px; }
+            .price { color: #717171; font-size: 15px; }
+            .btn { display: inline-block; background: #FF385C; color: white; padding: 14px 24px; font-size: 16px; font-weight: 600; text-decoration: none; border-radius: 8px; transition: background 0.2s; }
+            .btn:hover { background: #D90B38; }
+        </style>
+    </head>
+    <body>
+        <header>
+            <a href="/" class="logo">Rentlora</a>
+        </header>
+        <div class="hero">
+            <h1>Find your next perfect stay.</h1>
+            <p>Discover unique homes, luxury villas, and comfortable apartments curated exclusively for you.</p>
+            <a href="/" class="btn">Explore all properties</a>
+        </div>
+        <div class="grid">
+            <div class="card"><div class="img-placeholder" style="background: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%);"></div><div class="title">Luxury Villa in Bali</div><div class="price"><strong></strong> / night</div></div>
+            <div class="card"><div class="img-placeholder" style="background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);"></div><div class="title">Modern Apartment in NYC</div><div class="price"><strong></strong> / night</div></div>
+            <div class="card"><div class="img-placeholder" style="background: linear-gradient(135deg, #fbc2eb 0%, #a6c1ee 100%);"></div><div class="title">Cozy Cabin in the Alps</div><div class="price"><strong></strong> / night</div></div>
+        </div>
+    </body>
+    </html>
+    HTML
     systemctl enable --now nginx
   EOF
   )
