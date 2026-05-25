@@ -523,7 +523,15 @@ resource "aws_launch_template" "lt_frontend" {
     server {
       listen 80;
       root /usr/share/nginx/html;
+      
       location / { try_files \$uri \$uri/ /index.html; }
+      
+      location /properties { proxy_pass http://${aws_lb.internal.dns_name}; }
+      location /search { proxy_pass http://${aws_lb.internal.dns_name}; }
+      location /reviews { proxy_pass http://${aws_lb.internal.dns_name}; }
+      location /auth { proxy_pass http://${aws_lb.internal.dns_name}; }
+      location /users { proxy_pass http://${aws_lb.internal.dns_name}; }
+      location /bookings { proxy_pass http://${aws_lb.internal.dns_name}; }
     }
     NGINX
     nginx -t && systemctl enable --now nginx
@@ -600,34 +608,6 @@ resource "aws_lb_listener" "external80" {
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.tg_frontend.arn
-  }
-}
-
-resource "aws_lb_listener_rule" "ext_properties_paths" {
-  listener_arn = aws_lb_listener.external80.arn
-  priority     = 10
-  action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.tg_property.arn
-  }
-  condition {
-    path_pattern {
-      values = ["/properties*", "/search*", "/reviews*"]
-    }
-  }
-}
-
-resource "aws_lb_listener_rule" "ext_booking_paths" {
-  listener_arn = aws_lb_listener.external80.arn
-  priority     = 11
-  action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.tg_booking.arn
-  }
-  condition {
-    path_pattern {
-      values = ["/auth*", "/users*", "/bookings*"]
-    }
   }
 }
 
