@@ -513,32 +513,19 @@ resource "aws_launch_template" "lt_backend" {
 
 resource "aws_launch_template" "lt_frontend" {
   name_prefix            = "lt-frontend-"
-  image_id               = local.ami_id
+  image_id               = "ami-0221670218e6a86e9"
   instance_type          = "t3.small"
   key_name               = local.key_name
   vpc_security_group_ids = [aws_security_group.frontend.id]
   user_data = base64encode(<<-EOF
     #!/bin/bash
-    # force refresh 2
-    # force refresh 1
-    apt-get update -y
-    DEBIAN_FRONTEND=noninteractive apt-get install -y git nginx curl
-    curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
-    apt-get install -y nodejs
-    mkdir -p /opt
-    git clone ${local.repo_url} /opt/rentlora || true
-    cd /opt/rentlora/frontend
-    npm install
-    npm run build
-    cp -r dist/* /usr/share/nginx/html/
-    rm -f /etc/nginx/sites-enabled/default
-    rm -f /etc/nginx/conf.d/default.conf
+    # force refresh to trigger ASG 2
     cat > /etc/nginx/conf.d/rentlora.conf <<NGINX
     server {
       listen 80;
-      root /usr/share/nginx/html;
+      root /var/www/html;
       
-      location / { try_files \$uri \$uri/ /index.html; }
+      location / { try_files $uri $uri/ /index.html; }
       
       location /properties { proxy_pass http://${aws_lb.internal.dns_name}; }
       location /search { proxy_pass http://${aws_lb.internal.dns_name}; }
@@ -548,7 +535,7 @@ resource "aws_launch_template" "lt_frontend" {
       location /bookings { proxy_pass http://${aws_lb.internal.dns_name}; }
     }
     NGINX
-    nginx -t && systemctl enable --now nginx
+    systemctl restart nginx
   EOF
   )
 }
