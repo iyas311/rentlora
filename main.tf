@@ -550,6 +550,11 @@ resource "aws_launch_template" "lt_frontend" {
 
 resource "aws_autoscaling_group" "asg_backend" {
   name                      = "asg-backend"
+  tag {
+    key                 = "Name"
+    value               = "rentlora-backend"
+    propagate_at_launch = true
+  }
   min_size                  = 1
   max_size                  = 1
   desired_capacity          = 1
@@ -571,6 +576,11 @@ resource "aws_autoscaling_group" "asg_backend" {
 
 resource "aws_autoscaling_group" "asg_frontend" {
   name                      = "asg-frontend"
+  tag {
+    key                 = "Name"
+    value               = "rentlora-frontend"
+    propagate_at_launch = true
+  }
   min_size                  = 1
   max_size                  = 1
   desired_capacity          = 1
@@ -651,6 +661,11 @@ resource "aws_launch_template" "lt_rental" {
 
 resource "aws_autoscaling_group" "asg_rental" {
   name                      = "asg-rental"
+  tag {
+    key                 = "Name"
+    value               = "rentlora-rental"
+    propagate_at_launch = true
+  }
   min_size                  = 1
   max_size                  = 1
   desired_capacity          = 1
@@ -839,6 +854,11 @@ resource "aws_launch_template" "lt_docs" {
 
 resource "aws_autoscaling_group" "asg_docs" {
   name                      = "asg-docs"
+  tag {
+    key                 = "Name"
+    value               = "rentlora-docs"
+    propagate_at_launch = true
+  }
   min_size                  = 1
   max_size                  = 1
   desired_capacity          = 1
