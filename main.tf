@@ -738,3 +738,122 @@ output "internal_alb_dns" {
 output "rds_endpoint" {
   value = aws_db_instance.main.address
 }
+
+# ==========================================
+# DOCS HOST-BASED ROUTING RESOURCES
+# ==========================================
+
+resource "aws_lb_target_group" "tg_docs" {
+  name     = "tg-docs"
+  port     = 80
+  protocol = "HTTP"
+  vpc_id   = aws_vpc.main.id
+  health_check {
+    path = "/"
+    port = 80
+  }
+}
+
+resource "aws_lb_listener_rule" "ext_docs_host" {
+  listener_arn = aws_lb_listener.external80.arn
+  priority     = 5
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.tg_docs.arn
+  }
+
+  condition {
+    host_header {
+      values = ["docs.rentlora.in"]
+    }
+  }
+}
+
+resource "aws_launch_template" "lt_docs" {
+  name_prefix            = "lt-docs-"
+  image_id               = local.ami_id
+  instance_type          = "t3.small"
+  key_name               = local.key_name
+  vpc_security_group_ids = [aws_security_group.frontend.id]
+  user_data = base64encode(<<-EOF
+    #!/bin/bash
+    apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y nginx
+    cat > /var/www/html/index.html <<'HTML'
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Rentlora | Developer Documentation</title>
+        <style>
+            body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f8f9fa; color: #333; line-height: 1.6; }
+            .sidebar { width: 250px; background: white; height: 100vh; position: fixed; padding: 20px; border-right: 1px solid #e9ecef; }
+            .content { margin-left: 250px; padding: 50px; max-width: 900px; }
+            h1 { color: #2b6cb0; font-size: 36px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
+            h2 { color: #2d3748; margin-top: 40px; }
+            .logo { font-size: 24px; font-weight: 800; color: #FF385C; margin-bottom: 30px; display: block; letter-spacing: -1px;}
+            .nav-link { display: block; padding: 10px 0; color: #4a5568; text-decoration: none; font-weight: 500; }
+            .nav-link:hover { color: #FF385C; }
+            pre { background: #1a202c; color: #a0aec0; padding: 15px; border-radius: 8px; overflow-x: auto; font-size: 14px;}
+            .badge { background: #48bb78; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+        </style>
+    </head>
+    <body>
+        <div class="sidebar">
+            <div class="logo">Rentlora Docs</div>
+            <a href="#intro" class="nav-link">Introduction</a>
+            <a href="#auth" class="nav-link">Authentication</a>
+            <a href="#properties" class="nav-link">Properties API</a>
+            <a href="#bookings" class="nav-link">Bookings API</a>
+        </div>
+        <div class="content">
+            <h1 id="intro">Rentlora API Reference</h1>
+            <p>Welcome to the official Rentlora developer documentation. Here you will find all the endpoints required to integrate with our property and booking microservices.</p>
+            
+            <h2 id="auth">Authentication</h2>
+            <p>All private API endpoints require a JWT token passed in the Authorization header.</p>
+            <pre><code>Authorization: Bearer &lt;your_jwt_token&gt;</code></pre>
+            
+            <h2 id="properties">Properties API</h2>
+            <p><span class="badge">GET</span> <code>/properties</code> - Fetch all available properties.</p>
+            <pre><code>{
+  "status": "success",
+  "data": [
+    { "id": 1, "title": "Luxury Villa in Bali", "price": 120 }
+  ]
+}</code></pre>
+
+            <h2 id="bookings">Bookings API</h2>
+            <p><span class="badge" style="background:#4299e1;">POST</span> <code>/bookings</code> - Create a new booking.</p>
+            <p>Pass the property ID and desired dates in the JSON body to reserve a property.</p>
+        </div>
+    </body>
+    </html>
+    HTML
+    systemctl enable --now nginx
+  EOF
+  )
+}
+
+resource "aws_autoscaling_group" "asg_docs" {
+  name                      = "asg-docs"
+  min_size                  = 1
+  max_size                  = 1
+  desired_capacity          = 1
+  vpc_zone_identifier       = aws_subnet.frontend[*].id
+  target_group_arns         = [aws_lb_target_group.tg_docs.arn]
+  health_check_type         = "ELB"
+  health_check_grace_period = 600
+  launch_template {
+    id      = aws_launch_template.lt_docs.id
+    version = "$Latest"
+  }
+  instance_refresh {
+    strategy = "Rolling"
+    preferences {
+      min_healthy_percentage = 0
+    }
+  }
+}
