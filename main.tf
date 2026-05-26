@@ -461,7 +461,8 @@ resource "aws_launch_template" "lt_backend" {
   vpc_security_group_ids = [aws_security_group.backend.id]
   user_data = base64encode(<<-EOF
     #!/bin/bash
-    # force refresh 4
+    # force refresh 5
+    while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do sleep 5; done
     apt-get update -y
     DEBIAN_FRONTEND=noninteractive apt-get install -y git python3 python3-pip build-essential libpq-dev postgresql-client
     mkdir -p /opt
@@ -560,17 +561,11 @@ resource "aws_autoscaling_group" "asg_backend" {
   desired_capacity          = 1
   vpc_zone_identifier       = aws_subnet.backend[*].id
   target_group_arns         = [aws_lb_target_group.tg_property.arn, aws_lb_target_group.tg_booking.arn]
-  health_check_type         = "ELB"
+  health_check_type         = "EC2"
   health_check_grace_period = 600
   launch_template {
     id      = aws_launch_template.lt_backend.id
     version = "$Latest"
-  }
-  instance_refresh {
-    strategy = "Rolling"
-    preferences {
-      min_healthy_percentage = 0
-    }
   }
 }
 
@@ -586,17 +581,11 @@ resource "aws_autoscaling_group" "asg_frontend" {
   desired_capacity          = 1
   vpc_zone_identifier       = aws_subnet.frontend[*].id
   target_group_arns         = [aws_lb_target_group.tg_frontend.arn]
-  health_check_type         = "ELB"
+  health_check_type         = "EC2"
   health_check_grace_period = 600
   launch_template {
     id      = aws_launch_template.lt_frontend.id
     version = "$Latest"
-  }
-  instance_refresh {
-    strategy = "Rolling"
-    preferences {
-      min_healthy_percentage = 0
-    }
   }
 }
 
@@ -608,7 +597,8 @@ resource "aws_launch_template" "lt_rental" {
   vpc_security_group_ids = [aws_security_group.frontend.id]
   user_data = base64encode(<<-EOF
     #!/bin/bash
-    # force refresh 4
+    # force refresh 5
+    while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do sleep 5; done
     apt-get update -y
     DEBIAN_FRONTEND=noninteractive apt-get install -y nginx
     mkdir -p /var/www/html/rental
@@ -671,17 +661,11 @@ resource "aws_autoscaling_group" "asg_rental" {
   desired_capacity          = 1
   vpc_zone_identifier       = aws_subnet.frontend[*].id
   target_group_arns         = [aws_lb_target_group.tg_rental.arn]
-  health_check_type         = "ELB"
+  health_check_type         = "EC2"
   health_check_grace_period = 600
   launch_template {
     id      = aws_launch_template.lt_rental.id
     version = "$Latest"
-  }
-  instance_refresh {
-    strategy = "Rolling"
-    preferences {
-      min_healthy_percentage = 0
-    }
   }
 }
 
@@ -793,6 +777,8 @@ resource "aws_launch_template" "lt_docs" {
   vpc_security_group_ids = [aws_security_group.frontend.id]
   user_data = base64encode(<<-EOF
     #!/bin/bash
+    # force refresh 2
+    while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do sleep 5; done
     apt-get update -y
     DEBIAN_FRONTEND=noninteractive apt-get install -y nginx
     cat > /var/www/html/index.html <<'HTML'
@@ -864,16 +850,10 @@ resource "aws_autoscaling_group" "asg_docs" {
   desired_capacity          = 1
   vpc_zone_identifier       = aws_subnet.frontend[*].id
   target_group_arns         = [aws_lb_target_group.tg_docs.arn]
-  health_check_type         = "ELB"
+  health_check_type         = "EC2"
   health_check_grace_period = 600
   launch_template {
     id      = aws_launch_template.lt_docs.id
     version = "$Latest"
-  }
-  instance_refresh {
-    strategy = "Rolling"
-    preferences {
-      min_healthy_percentage = 0
-    }
   }
 }
