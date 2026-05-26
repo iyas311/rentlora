@@ -461,7 +461,7 @@ resource "aws_launch_template" "lt_backend" {
   vpc_security_group_ids = [aws_security_group.backend.id]
   user_data = base64encode(<<-EOF
     #!/bin/bash
-    # force refresh 3
+    # force refresh 4
     apt-get update -y
     DEBIAN_FRONTEND=noninteractive apt-get install -y git python3 python3-pip build-essential libpq-dev postgresql-client
     mkdir -p /opt
@@ -495,7 +495,7 @@ resource "aws_launch_template" "lt_backend" {
     [Service]
     WorkingDirectory=/opt/rentlora/property-service
     EnvironmentFile=/opt/rentlora/property-service/.env
-    ExecStart=/usr/local/bin/uvicorn main:app --host 0.0.0.0 --port 8001 --workers 2
+    ExecStart=/usr/bin/python3 -m uvicorn main:app --host 0.0.0.0 --port 8001 --workers 2
     Restart=always
     [Install]
     WantedBy=multi-user.target
@@ -507,7 +507,7 @@ resource "aws_launch_template" "lt_backend" {
     [Service]
     WorkingDirectory=/opt/rentlora/booking-service
     EnvironmentFile=/opt/rentlora/booking-service/.env
-    ExecStart=/usr/local/bin/uvicorn main:app --host 0.0.0.0 --port 8002 --workers 2
+    ExecStart=/usr/bin/python3 -m uvicorn main:app --host 0.0.0.0 --port 8002 --workers 2
     Restart=always
     [Install]
     WantedBy=multi-user.target
@@ -556,7 +556,7 @@ resource "aws_autoscaling_group" "asg_backend" {
   vpc_zone_identifier       = aws_subnet.backend[*].id
   target_group_arns         = [aws_lb_target_group.tg_property.arn, aws_lb_target_group.tg_booking.arn]
   health_check_type         = "ELB"
-  health_check_grace_period = 120
+  health_check_grace_period = 600
   launch_template {
     id      = aws_launch_template.lt_backend.id
     version = "$Latest"
@@ -598,7 +598,7 @@ resource "aws_launch_template" "lt_rental" {
   vpc_security_group_ids = [aws_security_group.frontend.id]
   user_data = base64encode(<<-EOF
     #!/bin/bash
-    # force refresh 3
+    # force refresh 4
     apt-get update -y
     DEBIAN_FRONTEND=noninteractive apt-get install -y nginx
     mkdir -p /var/www/html/rental
