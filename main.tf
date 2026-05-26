@@ -857,3 +857,63 @@ resource "aws_autoscaling_group" "asg_docs" {
     version = "$Latest"
   }
 }
+
+# ==========================================
+# BASTION HOST FOR DEBUGGING
+# ==========================================
+
+resource "aws_security_group" "bastion" {
+  name   = "rentlora-bastion-sg"
+  vpc_id = aws_vpc.main.id
+  tags   = { Name = "sg-bastion" }
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+resource "aws_instance" "bastion" {
+  ami                         = local.ami_id
+  instance_type               = "t3.micro"
+  key_name                    = local.key_name
+  subnet_id                   = aws_subnet.public[0].id
+  vpc_security_group_ids      = [aws_security_group.bastion.id]
+  associate_public_ip_address = true
+
+  tags = {
+    Name = "rentlora-bastion"
+  }
+}
+
+resource "aws_security_group_rule" "frontend_ssh_from_bastion" {
+  type                     = "ingress"
+  from_port                = 22
+  to_port                  = 22
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.bastion.id
+  security_group_id        = aws_security_group.frontend.id
+}
+
+resource "aws_security_group_rule" "backend_ssh_from_bastion" {
+  type                     = "ingress"
+  from_port                = 22
+  to_port                  = 22
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.bastion.id
+  security_group_id        = aws_security_group.backend.id
+}
+
+output "bastion_public_ip" {
+  value = aws_instance.bastion.public_ip
+  description = "The public IP address of the Bastion Host"
+}
