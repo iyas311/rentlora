@@ -18,13 +18,15 @@ rentlora/
 ## Services
 
 - `frontend`: Vite + React app served by Nginx in containers.
-- `property-service`: property catalog, search, reviews, image upload, and AI listing description generation.
+- `property-service`: property catalog, search, reviews, and image upload.
+- `ai-service`: AI listing description generation using xAI Grok.
 - `booking-service`: auth, user profile, and booking flows.
 - `postgres`: shared database for local development.
 
 ## API layout
 
-- Property service routes live under `/api/properties`, `/api/search`, `/api/reviews`, and `/api/ai`.
+- Property service routes live under `/api/properties`, `/api/search`, and `/api/reviews`.
+- AI service routes live under `/api/ai`.
 - Booking service routes live under `/api/auth`, `/api/users`, and `/api/bookings`.
 - Health checks stay at `/health` on each backend service.
 
@@ -34,10 +36,10 @@ Hosts and admins can generate a draft property description from the Add Property
 
 Required environment variables:
 
-- `OPENAI_API_KEY`
-- `OPENAI_MODEL` optional, defaults to `gpt-5-mini`
+- `XAI_API_KEY`
+- `XAI_MODEL` optional, defaults to `grok-beta`
 
-The backend uses the OpenAI Responses API through the official Python SDK.
+The backend uses the xAI API through the official OpenAI-compatible Python SDK.
 
 ## Local development
 
@@ -47,15 +49,16 @@ The backend uses the OpenAI Responses API through the official Python SDK.
 docker-compose up --build
 ```
 
-The frontend container proxies directly to `property-service` and `booking-service`, and the backend services create the shared tables automatically on startup for local development.
+The frontend container proxies directly to `property-service`, `booking-service`, and `ai-service`, and the backend services create the shared tables automatically on startup for local development.
 
 App URLs:
 
 - Frontend: `http://localhost`
 - Property service: `http://localhost:8001/health`
 - Booking service: `http://localhost:8002/health`
+- AI service: `http://localhost:8003/health`
 
-For the AI description feature locally, export `OPENAI_API_KEY` in your shell before starting Compose.
+For the AI description feature locally, export `XAI_API_KEY` in your shell before starting Compose.
 
 ## Terraform
 

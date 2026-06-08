@@ -28,8 +28,15 @@ services:
       JWT_SECRET: dev-secret
       S3_BUCKET_NAME: rentlora-assets
       AWS_DEFAULT_REGION: us-east-1
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5-mini}
+
+  ai-service:
+    build: ./ai-service
+    ports:
+      - "8003:8003"
+    environment:
+      JWT_SECRET: dev-secret
+      XAI_API_KEY: ${XAI_API_KEY:-xai-I0gPIz79srCEQ0AHDf0FnEKI6yWcE0u4wueW7GY7AZeqG9wKakWH7hx4sz8BTL3XT7dL2yhEo8ld85rP}
+      XAI_MODEL: ${XAI_MODEL:-grok-beta}
 
   booking-service:
     build: ./booking-service
@@ -50,6 +57,7 @@ services:
     depends_on:
       - property-service
       - booking-service
+      - ai-service
 
 volumes:
   pgdata:

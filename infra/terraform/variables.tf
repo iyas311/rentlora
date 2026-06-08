@@ -9,3 +9,10 @@ variable "jwt_secret" {
   type        = string
   sensitive   = true
 }
+
+variable "xai_api_key" {
+  description = "xAI Grok API key used by the ai-service."
+  type        = string
+  sensitive   = true
+  default     = ""
+}

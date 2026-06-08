@@ -229,6 +229,24 @@ resource "aws_security_group_rule" "be8002_from_ext_alb" {
   security_group_id        = aws_security_group.backend.id
 }
 
+resource "aws_security_group_rule" "be8003" {
+  type                     = "ingress"
+  from_port                = 8003
+  to_port                  = 8003
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.int_alb.id
+  security_group_id        = aws_security_group.backend.id
+}
+
+resource "aws_security_group_rule" "be8003_from_ext_alb" {
+  type                     = "ingress"
+  from_port                = 8003
+  to_port                  = 8003
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.ext_alb.id
+  security_group_id        = aws_security_group.backend.id
+}
+
 resource "aws_security_group_rule" "db5432" {
   type                     = "ingress"
   from_port                = 5432
@@ -317,6 +335,16 @@ resource "aws_lb_target_group" "tg_property" {
 resource "aws_lb_target_group" "tg_booking" {
   name     = "tg-booking"
   port     = 8002
+  protocol = "HTTP"
+  vpc_id   = aws_vpc.main.id
+  health_check {
+    path = "/health"
+  }
+}
+
+resource "aws_lb_target_group" "tg_ai" {
+  name     = "tg-ai"
+  port     = 8003
   protocol = "HTTP"
   vpc_id   = aws_vpc.main.id
   health_check {
@@ -452,6 +480,20 @@ resource "aws_lb_listener_rule" "r6" {
   }
 }
 
+resource "aws_lb_listener_rule" "r7" {
+  listener_arn = aws_lb_listener.internal80.arn
+  priority     = 7
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.tg_ai.arn
+  }
+  condition {
+    path_pattern {
+      values = ["/ai*"]
+    }
+  }
+}
+
 resource "aws_launch_template" "lt_backend" {
   name_prefix            = "lt-backend-"
   image_id               = local.ami_id
@@ -470,6 +512,7 @@ resource "aws_launch_template" "lt_backend" {
     # Force install python dependencies
     cd /opt/rentlora/property-service && pip3 install --break-system-packages -r requirements.txt
     cd /opt/rentlora/booking-service && pip3 install --break-system-packages -r requirements.txt
+    cd /opt/rentlora/ai-service && pip3 install --break-system-packages -r requirements.txt
     
     # Automatically initialize Database Schema
     export PGPASSWORD="${local.db_password}"
@@ -486,6 +529,12 @@ resource "aws_launch_template" "lt_backend" {
     DATABASE_URL=postgresql+asyncpg://rentlora_admin:${local.db_password}@${aws_db_instance.main.address}:5432/rentlora
     JWT_SECRET=${local.jwt_secret}
     AWS_DEFAULT_REGION=us-east-1
+    ENV=production
+    ENV
+    cat > /opt/rentlora/ai-service/.env <<ENV
+    JWT_SECRET=${local.jwt_secret}
+    XAI_API_KEY=${var.xai_api_key}
+    XAI_MODEL=grok-beta
     ENV=production
     ENV
     cat > /etc/systemd/system/property.service <<UNIT
@@ -512,8 +561,20 @@ resource "aws_launch_template" "lt_backend" {
     [Install]
     WantedBy=multi-user.target
     UNIT
+    cat > /etc/systemd/system/ai.service <<UNIT
+    [Unit]
+    Description=AI Service
+    After=network.target
+    [Service]
+    WorkingDirectory=/opt/rentlora/ai-service
+    EnvironmentFile=/opt/rentlora/ai-service/.env
+    ExecStart=/usr/bin/python3 -m uvicorn main:app --host 0.0.0.0 --port 8003 --workers 2
+    Restart=always
+    [Install]
+    WantedBy=multi-user.target
+    UNIT
     systemctl daemon-reload
-    systemctl enable --now property booking
+    systemctl enable --now property booking ai
   EOF
   )
 }
@@ -538,6 +599,7 @@ resource "aws_launch_template" "lt_frontend" {
       location /properties { proxy_pass http://${aws_lb.internal.dns_name}; }
       location /search { proxy_pass http://${aws_lb.internal.dns_name}; }
       location /reviews { proxy_pass http://${aws_lb.internal.dns_name}; }
+      location /ai { proxy_pass http://${aws_lb.internal.dns_name}; }
       location /auth { proxy_pass http://${aws_lb.internal.dns_name}; }
       location /users { proxy_pass http://${aws_lb.internal.dns_name}; }
       location /bookings { proxy_pass http://${aws_lb.internal.dns_name}; }
@@ -559,7 +621,7 @@ resource "aws_autoscaling_group" "asg_backend" {
   max_size                  = 1
   desired_capacity          = 1
   vpc_zone_identifier       = aws_subnet.backend[*].id
-  target_group_arns         = [aws_lb_target_group.tg_property.arn, aws_lb_target_group.tg_booking.arn]
+  target_group_arns         = [aws_lb_target_group.tg_property.arn, aws_lb_target_group.tg_booking.arn, aws_lb_target_group.tg_ai.arn]
   health_check_type         = "EC2"
   health_check_grace_period = 600
   launch_template {

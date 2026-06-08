@@ -8,7 +8,7 @@ from sqlalchemy import text
 from config import get_settings
 from database import Base, engine
 import models  # noqa: F401
-from routes import ai_router, properties_router, reviews_router, search_router
+from routes import properties_router, reviews_router, search_router
 
 settings = get_settings()
 logging.basicConfig(level=logging.INFO)
@@ -48,4 +48,3 @@ async def health():
 app.include_router(properties_router, prefix="/api")
 app.include_router(search_router, prefix="/api")
 app.include_router(reviews_router, prefix="/api")
-app.include_router(ai_router, prefix="/api")

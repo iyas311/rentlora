@@ -13,16 +13,16 @@ def _format_amenities(amenities: list[str]) -> str:
 
 
 @lru_cache
-def _get_openai_client(api_key: str) -> OpenAI:
-    return OpenAI(api_key=api_key)
+def _get_xai_client(api_key: str) -> OpenAI:
+    return OpenAI(api_key=api_key, base_url="https://api.x.ai/v1")
 
 
 def generate_property_description(payload: PropertyDescriptionRequest) -> str:
     settings = get_settings()
-    if not settings.openai_api_key:
+    if not settings.xai_api_key:
         raise HTTPException(status_code=503, detail="AI description generation is not configured")
 
-    client = _get_openai_client(settings.openai_api_key)
+    client = _get_xai_client(settings.xai_api_key)
     prompt = f"""
 Write a polished vacation rental description for a property listing.
 
@@ -47,14 +47,15 @@ Requirements:
 """.strip()
 
     try:
-        response = client.with_options(timeout=settings.openai_timeout_seconds).responses.create(
-            model=settings.openai_model,
-            input=prompt,
+        response = client.with_options(timeout=settings.xai_timeout_seconds).chat.completions.create(
+            model=settings.xai_model,
+            messages=[{"role": "user", "content": prompt}],
         )
     except Exception as exc:
         raise HTTPException(status_code=502, detail="AI description generation failed") from exc
 
-    description = (response.output_text or "").strip()
-    if not description:
+    if not response.choices or not response.choices[0].message or not response.choices[0].message.content:
         raise HTTPException(status_code=502, detail="AI description generation returned an empty result")
+
+    description = response.choices[0].message.content.strip()
     return description
