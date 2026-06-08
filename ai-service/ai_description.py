@@ -47,9 +47,9 @@ Requirements:
 """.strip()
 
     try:
-        response = client.with_options(timeout=settings.xai_timeout_seconds).chat.completions.create(
+        response = client.with_options(timeout=settings.xai_timeout_seconds).responses.create(
             model=settings.xai_model,
-            messages=[{"role": "user", "content": prompt}],
+            input=prompt,
         )
     except Exception as exc:
         import logging
@@ -63,8 +63,7 @@ Requirements:
         logger.error(f"xAI API Call Failed: {error_msg}")
         raise HTTPException(status_code=502, detail=f"AI description generation failed: {error_msg}") from exc
 
-    if not response.choices or not response.choices[0].message or not response.choices[0].message.content:
+    description = (response.output_text or "").strip()
+    if not description:
         raise HTTPException(status_code=502, detail="AI description generation returned an empty result")
-
-    description = response.choices[0].message.content.strip()
     return description

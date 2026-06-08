@@ -36,7 +36,7 @@ services:
     environment:
       JWT_SECRET: dev-secret
       XAI_API_KEY: ${XAI_API_KEY:-xai-I0gPIz79srCEQ0AHDf0FnEKI6yWcE0u4wueW7GY7AZeqG9wKakWH7hx4sz8BTL3XT7dL2yhEo8ld85rP}
-      XAI_MODEL: ${XAI_MODEL:-grok-beta}
+      XAI_MODEL: ${XAI_MODEL:-grok-4.3}
 
   booking-service:
     build: ./booking-service
