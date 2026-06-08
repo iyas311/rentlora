@@ -30,7 +30,8 @@ export default function AddProperty() {
       setField("description", result.description);
       notifySuccess("AI description generated");
     } catch (error) {
-      notifyError(error);
+      const detail = error.response?.data?.detail || error.message || "Unknown error";
+      notifyError(`AI description generation failed: ${detail}. You can still write a description manually.`);
     } finally {
       setIsGenerating(false);
     }

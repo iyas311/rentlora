@@ -6,7 +6,6 @@ class Settings(BaseSettings):
     app_name: str = "ai-service"
     app_version: str = "1.0.0"
     jwt_secret: str
-    env: str = "development"
     xai_api_key: str | None = None
     xai_model: str = "grok-beta"
     xai_timeout_seconds: float = 30.0
