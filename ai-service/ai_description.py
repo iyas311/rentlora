@@ -52,7 +52,16 @@ Requirements:
             messages=[{"role": "user", "content": prompt}],
         )
     except Exception as exc:
-        raise HTTPException(status_code=502, detail="AI description generation failed") from exc
+        import logging
+        logger = logging.getLogger("ai-service")
+        error_msg = str(exc)
+        if hasattr(exc, "response") and exc.response is not None:
+            try:
+                error_msg = f"{exc.response.text}"
+            except Exception:
+                pass
+        logger.error(f"xAI API Call Failed: {error_msg}")
+        raise HTTPException(status_code=502, detail=f"AI description generation failed: {error_msg}") from exc
 
     if not response.choices or not response.choices[0].message or not response.choices[0].message.content:
         raise HTTPException(status_code=502, detail="AI description generation returned an empty result")
