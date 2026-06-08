@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import time
 
@@ -34,9 +35,18 @@ async def log_requests(request: Request, call_next):
 
 @app.on_event("startup")
 async def startup():
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-        await conn.execute(text("SELECT 1"))
+    for attempt in range(5):
+        try:
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+                await conn.execute(text("SELECT 1"))
+            break
+        except Exception as e:
+            if attempt == 4:
+                logger.error("Failed to initialize database after 5 attempts")
+                raise e
+            logger.warning(f"Database initialization attempt {attempt + 1} failed. Retrying in 2 seconds...")
+            await asyncio.sleep(2)
     logger.info("booking-service started on port 8002")
 
 
