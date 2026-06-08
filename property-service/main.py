@@ -1,9 +1,11 @@
 import asyncio
 import logging
+import os
 import time
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
 from config import get_settings
@@ -54,6 +56,9 @@ async def startup():
 async def health():
     return {"status": "ok", "service": "property-service", "db": "connected"}
 
+
+os.makedirs(settings.uploads_dir, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=settings.uploads_dir), name="uploads")
 
 app.include_router(properties_router, prefix="/api")
 app.include_router(search_router, prefix="/api")
