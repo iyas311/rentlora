@@ -13,5 +13,34 @@ export default function Register() {
     e.preventDefault();
     try { await register(form); navigate("/"); } catch (err) { notifyError(err.response?.data?.detail || "Register failed"); }
   };
-  return <form onSubmit={submit} className="mx-auto max-w-md space-y-3 rounded-lg bg-white p-6 shadow"><h1 className="text-2xl font-semibold">Register</h1><Input placeholder="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /><Input type="email" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /><Input type="password" placeholder="Password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /><Input type="password" placeholder="Confirm password" value={form.confirm_password} onChange={(e) => setForm({ ...form, confirm_password: e.target.value })} /><div className="flex gap-2"><Button type="button" variant={form.role === "guest" ? "primary" : "secondary"} onClick={() => setForm({ ...form, role: "guest" })}>Guest</Button><Button type="button" variant={form.role === "host" ? "primary" : "secondary"} onClick={() => setForm({ ...form, role: "host" })}>Host</Button></div><Button className="w-full">Create Account</Button><p className="text-sm">Already registered? <Link className="text-primary" to="/login">Login</Link></p></form>;
+  return (
+    <form onSubmit={submit} className="mx-auto max-w-md space-y-4 rounded-lg bg-white p-6 shadow">
+      <h1 className="text-2xl font-semibold text-primary">Register</h1>
+      <div>
+        <label className="block text-sm font-semibold text-gray-700 mb-1">Full Name</label>
+        <Input placeholder="John Doe" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+      </div>
+      <div>
+        <label className="block text-sm font-semibold text-gray-700 mb-1">Email Address</label>
+        <Input type="email" placeholder="email@example.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+      </div>
+      <div>
+        <label className="block text-sm font-semibold text-gray-700 mb-1">Password</label>
+        <Input type="password" placeholder="••••••••" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+      </div>
+      <div>
+        <label className="block text-sm font-semibold text-gray-700 mb-1">Confirm Password</label>
+        <Input type="password" placeholder="••••••••" value={form.confirm_password} onChange={(e) => setForm({ ...form, confirm_password: e.target.value })} />
+      </div>
+      <div>
+        <label className="block text-sm font-semibold text-gray-700 mb-1">Register As</label>
+        <div className="flex gap-2">
+          <Button type="button" variant={form.role === "guest" ? "primary" : "secondary"} onClick={() => setForm({ ...form, role: "guest" })}>Guest</Button>
+          <Button type="button" variant={form.role === "host" ? "primary" : "secondary"} onClick={() => setForm({ ...form, role: "host" })}>Host</Button>
+        </div>
+      </div>
+      <Button className="w-full">Create Account</Button>
+      <p className="text-sm">Already registered? <Link className="text-primary hover:underline" to="/login">Login</Link></p>
+    </form>
+  );
 }

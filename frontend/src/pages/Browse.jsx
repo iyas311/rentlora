@@ -8,7 +8,7 @@ export default function Browse() {
   const filters = Object.fromEntries(params.entries());
   
   const currentPage = parseInt(filters.page || "1", 10);
-  const { data, isLoading } = useProperties({ ...filters, page: currentPage });
+  const { data, isLoading } = useProperties({ ...filters, page: currentPage, limit: 6 });
   
   const handlePageChange = (newPage) => {
     const nextParams = new URLSearchParams(params);
@@ -16,11 +16,24 @@ export default function Browse() {
     setParams(nextParams);
   };
 
+  const handleFilterChange = (nextFilters) => {
+    const nextParams = new URLSearchParams();
+    Object.entries(nextFilters).forEach(([key, val]) => {
+      if (val !== undefined && val !== null && val !== "") {
+        if (key !== "page") {
+          nextParams.set(key, val.toString());
+        }
+      }
+    });
+    nextParams.set("page", "1");
+    setParams(nextParams);
+  };
+
   const totalPages = data?.pages || 0;
 
   return (
     <div className="grid grid-cols-1 gap-6 md:grid-cols-[280px_1fr]">
-      <FilterSidebar filters={filters} setFilters={(next) => setParams(next)} clear={() => setParams({})} />
+      <FilterSidebar filters={filters} setFilters={handleFilterChange} clear={() => setParams({})} />
       <div className="space-y-6">
         <PropertyGrid data={data} loading={isLoading} />
         
