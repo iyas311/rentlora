@@ -48,7 +48,7 @@ async def list_properties(
 ):
     filters = []
     if city:
-        filters.append(Property.city.ilike(city))
+        filters.append(Property.city.ilike(f"%{city.strip()}%"))
     if min_price is not None:
         filters.append(Property.price_per_night >= min_price)
     if max_price is not None:
