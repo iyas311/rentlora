@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     uploads_dir: str = "./uploads"
     aws_default_region: str = "us-east-1"
     env: str = "development"
+    openai_api_key: str | None = None
+    openai_model: str = "gpt-5-mini"
+    openai_timeout_seconds: float = 30.0
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

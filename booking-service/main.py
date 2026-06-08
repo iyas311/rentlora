@@ -6,7 +6,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
 from config import get_settings
-from database import engine
+from database import Base, engine
+import models  # noqa: F401
 from routes import auth_router, bookings_router, users_router
 
 settings = get_settings()
@@ -33,7 +34,8 @@ async def log_requests(request: Request, call_next):
 
 @app.on_event("startup")
 async def startup():
-    async with engine.connect() as conn:
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
         await conn.execute(text("SELECT 1"))
     logger.info("booking-service started on port 8002")
 
@@ -43,6 +45,6 @@ async def health():
     return {"status": "ok", "service": "booking-service", "db": "connected"}
 
 
-app.include_router(auth_router)
-app.include_router(users_router)
-app.include_router(bookings_router)
+app.include_router(auth_router, prefix="/api")
+app.include_router(users_router, prefix="/api")
+app.include_router(bookings_router, prefix="/api")

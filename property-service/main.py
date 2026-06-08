@@ -6,8 +6,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
 from config import get_settings
-from database import engine
-from routes import properties_router, reviews_router, search_router
+from database import Base, engine
+import models  # noqa: F401
+from routes import ai_router, properties_router, reviews_router, search_router
 
 settings = get_settings()
 logging.basicConfig(level=logging.INFO)
@@ -33,7 +34,8 @@ async def log_requests(request: Request, call_next):
 
 @app.on_event("startup")
 async def startup():
-    async with engine.connect() as conn:
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
         await conn.execute(text("SELECT 1"))
     logger.info("property-service started on port 8001")
 
@@ -43,6 +45,7 @@ async def health():
     return {"status": "ok", "service": "property-service", "db": "connected"}
 
 
-app.include_router(properties_router)
-app.include_router(search_router)
-app.include_router(reviews_router)
+app.include_router(properties_router, prefix="/api")
+app.include_router(search_router, prefix="/api")
+app.include_router(reviews_router, prefix="/api")
+app.include_router(ai_router, prefix="/api")

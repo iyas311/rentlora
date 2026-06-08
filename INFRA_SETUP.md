@@ -814,21 +814,26 @@ output "rds_endpoint" {
 Prerequisites:
 ```bash
 aws configure
+cd infra/terraform
 terraform init
 ```
 
 Steps:
-1. Replace locals: `ami_id`, `s3_bucket`, `db_password`, `key_name`, and `ACM_CERT_ARN_REPLACE`.
-2. Run:
+1. Run Terraform from `infra/terraform`.
+2. Set `db_password` and `jwt_secret` in `terraform.tfvars` instead of hardcoding them in `main.tf`.
+3. Review environment-specific values like `ami_id`, `s3_bucket`, `key_name`, and `ACM_CERT_ARN_REPLACE`.
+4. Run:
 ```bash
+cd infra/terraform
 terraform init
 terraform plan
 terraform apply
 ```
-3. Copy outputs (`rds_endpoint`, ALB DNS) and fill `.env` files.
-4. Upload `.env` files and build tarballs to S3 paths.
-5. When done:
+5. Copy outputs (`rds_endpoint`, ALB DNS) and fill `.env` files.
+6. Upload `.env` files and build tarballs to S3 paths.
+7. When done:
 ```bash
+cd infra/terraform
 terraform destroy
 ```
 

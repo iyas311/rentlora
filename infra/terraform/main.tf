@@ -1,5 +1,4 @@
 
-
 locals {
   region         = "us-east-1"
   azs            = ["us-east-1a", "us-east-1b"]
@@ -13,8 +12,8 @@ locals {
   ami_id      = "ami-091138d0f0d41ff90"
   key_name    = "iyas-private"
   repo_url    = "https://github.com/iyas311/rentlora.git"
-  db_password = "IyAs2458#Safe"
-  jwt_secret  = "secret"
+  db_password = var.db_password
+  jwt_secret  = var.jwt_secret
 }
 
 provider "aws" {

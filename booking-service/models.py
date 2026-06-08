@@ -53,3 +53,5 @@ class Property(Base):
     amenities: Mapped[list] = mapped_column(JSONB, default=list)
     images: Mapped[list] = mapped_column(JSONB, default=list)
     is_available: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
