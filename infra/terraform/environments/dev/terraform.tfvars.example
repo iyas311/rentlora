@@ -2,19 +2,9 @@
 # Do NOT commit your actual terraform.tfvars file to GitHub!
 
 # Infrastructure Architecture configuration
-project_name = "rentlora"
 domain_name  = "rentlora.in"
 ami_id       = "ami-091138d0f0d41ff90"
 key_name     = "iyas-private"
-repo_url     = "https://github.com/iyas311/rentlora.git"
-
-# Networking Configuration
-vpc_cidr         = "10.0.0.0/16"
-azs              = ["us-east-1a", "us-east-1b"]
-public_subnets   = ["10.0.1.0/24", "10.0.2.0/24"]
-frontend_subnets = ["10.0.11.0/24", "10.0.12.0/24"]
-backend_subnets  = ["10.0.21.0/24", "10.0.22.0/24"]
-db_subnets       = ["10.0.31.0/24", "10.0.32.0/24"]
 
 # Sensitive Secrets
 db_password = "my_super_secret_database_password_123"
