@@ -3,6 +3,11 @@ output "ext_alb_dns" {
   description = "The DNS name of the external load balancer"
 }
 
+output "ext_alb_zone_id" {
+  value       = aws_lb.external.zone_id
+  description = "The Route53 Zone ID of the external load balancer"
+}
+
 output "int_alb_dns" {
   value       = aws_lb.internal.dns_name
   description = "The DNS name of the internal load balancer"

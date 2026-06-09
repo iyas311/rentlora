@@ -39,6 +39,13 @@ module "database" {
   db_password   = var.db_password
 }
 
+module "domain" {
+  source = "../../modules/domain"
+
+  domain_name = "rentlora.in"
+  environment = local.environment
+}
+
 module "load_balancing" {
   source = "../../modules/load_balancing"
 
@@ -49,6 +56,7 @@ module "load_balancing" {
   frontend_subnet_ids = module.networking.frontend_subnet_ids
   ext_alb_sg_id       = module.security.ext_alb_sg_id
   int_alb_sg_id       = module.security.int_alb_sg_id
+  certificate_arn     = module.domain.certificate_arn
 }
 
 module "compute" {
@@ -71,6 +79,30 @@ module "compute" {
   ec2_instance_profile_name = module.security.ec2_instance_profile_name
 }
 
+resource "aws_route53_record" "app" {
+  zone_id = module.domain.zone_id
+  name    = "rentlora.in"
+  type    = "A"
+
+  alias {
+    name                   = module.load_balancing.ext_alb_dns
+    zone_id                = module.load_balancing.ext_alb_zone_id
+    evaluate_target_health = true
+  }
+}
+
+resource "aws_route53_record" "www" {
+  zone_id = module.domain.zone_id
+  name    = "www.rentlora.in"
+  type    = "A"
+
+  alias {
+    name                   = module.load_balancing.ext_alb_dns
+    zone_id                = module.load_balancing.ext_alb_zone_id
+    evaluate_target_health = true
+  }
+}
+
 output "website_url" {
-  value = "http://${module.load_balancing.ext_alb_dns}"
+  value = module.domain.domain_url
 }
