@@ -103,7 +103,19 @@ module "notifications" {
 
 resource "aws_route53_record" "app" {
   zone_id = module.domain.zone_id
-  name    = "dev.rentlora.in"
+  name    = "rentlora.in"
+  type    = "A"
+
+  alias {
+    name                   = module.load_balancing.ext_alb_dns
+    zone_id                = module.load_balancing.ext_alb_zone_id
+    evaluate_target_health = true
+  }
+}
+
+resource "aws_route53_record" "www" {
+  zone_id = module.domain.zone_id
+  name    = "www.rentlora.in"
   type    = "A"
 
   alias {

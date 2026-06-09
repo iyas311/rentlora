@@ -6,8 +6,8 @@ data "aws_route53_zone" "main" {
 }
 
 locals {
-  # If prod, use "rentlora.in". If dev, use "dev.rentlora.in"
-  subdomain = var.environment == "prod" ? var.domain_name : "${var.environment}.${var.domain_name}"
+  # The user wants the dev environment to act as the main site for now.
+  subdomain = var.domain_name
 }
 
 # --- ACM CERTIFICATE ---
@@ -15,8 +15,8 @@ resource "aws_acm_certificate" "cert" {
   domain_name       = local.subdomain
   validation_method = "DNS"
 
-  # Also cover www.rentlora.in if prod
-  subject_alternative_names = var.environment == "prod" ? ["www.${var.domain_name}"] : []
+  # Always cover www.rentlora.in so the website is fully accessible
+  subject_alternative_names = ["www.${var.domain_name}"]
 
   lifecycle {
     create_before_destroy = true
