@@ -84,3 +84,16 @@ terraform apply
 - Service virtualenvs are ignored through `.gitignore`.
 - Terraform state and provider artifacts remain ignored.
 - Local helper/bootstrap files that are no longer needed were removed during cleanup.
+
+
+
+
+
+
+
+aws secretsmanager create-secret --name /rentlora/dev/db-password --secret-string "YOUR_REAL_DB_PASSWORD"
+
+aws secretsmanager create-secret --name /rentlora/dev/jwt-secret --secret-string "YOUR_REAL_JWT_SECRET"
+
+aws secretsmanager create-secret --name /rentlora/dev/xai-api-key --secret-string "YOUR_REAL_XAI_KEY"
+
