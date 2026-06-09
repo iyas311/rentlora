@@ -36,7 +36,7 @@ def fetch_aws_config():
     except Exception:
         cf_domain = ""
     
-    database_url = f"postgresql+asyncpg://postgres:{db_pass}@{db_endpoint}:5432/rentlora"
+    database_url = f"postgresql+asyncpg://postgres:{db_pass}@{db_endpoint}/rentlora"
     
     return {
         "database_url": database_url,

@@ -27,7 +27,7 @@ def fetch_aws_config():
     
     db_endpoint = ssm.get_parameter(Name=f"/rentlora/{env}/db-endpoint")['Parameter']['Value']
     
-    database_url = f"postgresql+asyncpg://postgres:{db_pass}@{db_endpoint}:5432/rentlora"
+    database_url = f"postgresql+asyncpg://postgres:{db_pass}@{db_endpoint}/rentlora"
     
     return {
         "database_url": database_url,
