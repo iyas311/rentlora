@@ -36,11 +36,24 @@ resource "aws_launch_template" "frontend" {
     # Log into AWS ECR
     aws ecr get-login-password --region us-east-1 | sudo docker login --username AWS --password-stdin ${data.aws_caller_identity.current.account_id}.dkr.ecr.us-east-1.amazonaws.com
 
-    # Pull and run the pre-built Frontend image
-    sudo docker pull ${data.aws_caller_identity.current.account_id}.dkr.ecr.us-east-1.amazonaws.com/rentlora-${var.environment}-frontend:latest
-    sudo docker run -d --name frontend -p 80:80 \
-      -e INT_ALB_DNS="${var.int_alb_dns}" \
-      ${data.aws_caller_identity.current.account_id}.dkr.ecr.us-east-1.amazonaws.com/rentlora-${var.environment}-frontend:latest
+    # Create the production docker-compose file dynamically
+    mkdir -p /home/ubuntu/rentlora/frontend
+    cd /home/ubuntu/rentlora/frontend
+
+    cat << 'COMPOSE' > docker-compose.yml
+    version: "3.9"
+    services:
+      frontend:
+        image: ${data.aws_caller_identity.current.account_id}.dkr.ecr.us-east-1.amazonaws.com/rentlora-${var.environment}-frontend:latest
+        ports:
+          - "80:80"
+        environment:
+          - INT_ALB_DNS=${var.int_alb_dns}
+        restart: always
+    COMPOSE
+
+    sudo docker compose pull
+    sudo docker compose up -d
   EOF
   )
 }

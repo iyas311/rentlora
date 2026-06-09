@@ -39,7 +39,19 @@ jobs:
         run: |
           cd backend/booking-service
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          
+      - name: Scan Booking Service Image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ steps.login-ecr.outputs.registry }}/${{ env.PROJECT }}-booking-service:latest
+          format: 'table'
+          exit-code: '0' # Set to 1 if you want the pipeline to fail on CRITICAL vulnerabilities
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Push Booking Service
+        run: docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.PROJECT }}-booking-service:latest
 
       - name: Build and Push Property Service
         env:
@@ -49,7 +61,17 @@ jobs:
         run: |
           cd backend/property-service
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+      - name: Scan Property Service Image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ steps.login-ecr.outputs.registry }}/${{ env.PROJECT }}-property-service:latest
+          format: 'table'
+          exit-code: '0'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Push Property Service
+        run: docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.PROJECT }}-property-service:latest
 
       - name: Build and Push AI Service
         env:
@@ -59,7 +81,17 @@ jobs:
         run: |
           cd backend/ai-service
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+      - name: Scan AI Service Image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ steps.login-ecr.outputs.registry }}/${{ env.PROJECT }}-ai-service:latest
+          format: 'table'
+          exit-code: '0'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Push AI Service
+        run: docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.PROJECT }}-ai-service:latest
 
       - name: Build and Push Frontend
         env:
@@ -69,7 +101,17 @@ jobs:
         run: |
           cd frontend
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+      - name: Scan Frontend Image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ steps.login-ecr.outputs.registry }}/${{ env.PROJECT }}-frontend:latest
+          format: 'table'
+          exit-code: '0'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Push Frontend
+        run: docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.PROJECT }}-frontend:latest
 
   deploy:
     name: Trigger EC2 Deployment
@@ -115,5 +157,5 @@ jobs:
           aws ssm send-command \
             --instance-ids $INSTANCE_IDS \
             --document-name "AWS-RunShellScript" \
-            --parameters 'commands=["cd /home/ubuntu/rentlora/frontend", "docker pull 280646578520.dkr.ecr.us-east-1.amazonaws.com/rentlora-dev-frontend:latest", "docker stop frontend || true", "docker rm frontend || true", "docker run -d --name frontend -p 80:80 --env-file .env 280646578520.dkr.ecr.us-east-1.amazonaws.com/rentlora-dev-frontend:latest"]' \
+            --parameters 'commands=["cd /home/ubuntu/rentlora/frontend", "docker compose pull", "docker compose up -d"]' \
             --comment "Deploy latest ECR frontend image"
