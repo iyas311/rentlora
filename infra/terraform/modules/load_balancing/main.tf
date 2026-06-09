@@ -139,7 +139,7 @@ resource "aws_lb_listener_rule" "route_properties" {
 
   condition {
     path_pattern {
-      values = ["/api/properties*"]
+      values = ["/api/properties*", "/api/search*", "/api/reviews*"]
     }
   }
 }
@@ -155,7 +155,7 @@ resource "aws_lb_listener_rule" "route_bookings" {
 
   condition {
     path_pattern {
-      values = ["/api/bookings*"]
+      values = ["/api/bookings*", "/api/auth*", "/api/users*"]
     }
   }
 }
