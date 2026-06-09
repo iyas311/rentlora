@@ -22,12 +22,35 @@ resource "aws_launch_template" "frontend" {
     git clone ${var.repo_url} /home/ubuntu/rentlora
     cd /home/ubuntu/rentlora/frontend
 
+    # OVERWRITE NGINX FOR AWS INTERNAL ALB
+    cat << 'NGINX' > nginx.conf
+    events {}
+    http {
+      resolver 169.254.169.253 valid=5s;
+      include /etc/nginx/mime.types;
+      server {
+        listen 80;
+        client_max_body_size 50M;
+        root /usr/share/nginx/html;
+        index index.html;
+        location / {
+          try_files $$uri $$uri/ /index.html;
+        }
+        location /api/ {
+          proxy_pass http://${var.int_alb_dns}:80;
+        }
+        location /uploads/ {
+          proxy_pass http://${var.int_alb_dns}:80;
+        }
+      }
+    }
+    NGINX
+
     # Build the image
     sudo docker build -t rentlora-frontend .
 
-    # Run the container, injecting the INT_ALB_DNS environment variable
-    # Assuming your frontend Dockerfile/nginx config is set up to read this
-    sudo docker run -d -p 80:80 -e INT_ALB_DNS=$INT_ALB_DNS rentlora-frontend
+    # Run the container
+    sudo docker run -d -p 80:80 rentlora-frontend
   EOF
   )
 }
