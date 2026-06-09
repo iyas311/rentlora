@@ -116,15 +116,26 @@ module "registry" {
   environment  = local.environment
 }
 
+# --- 9. GLOBAL SHIELD (CLOUDFRONT) ---
+module "cdn" {
+  source = "../../modules/cdn"
+
+  project_name    = local.project_name
+  environment     = local.environment
+  domain_name     = var.domain_name
+  alb_domain_name = module.load_balancing.ext_alb_dns
+  certificate_arn = module.domain.certificate_arn
+}
+
 resource "aws_route53_record" "app" {
   zone_id = module.domain.zone_id
   name    = var.domain_name
   type    = "A"
 
   alias {
-    name                   = module.load_balancing.ext_alb_dns
-    zone_id                = module.load_balancing.ext_alb_zone_id
-    evaluate_target_health = true
+    name                   = module.cdn.cloudfront_domain_name
+    zone_id                = module.cdn.cloudfront_hosted_zone_id
+    evaluate_target_health = false
   }
 }
 
@@ -134,9 +145,9 @@ resource "aws_route53_record" "www" {
   type    = "A"
 
   alias {
-    name                   = module.load_balancing.ext_alb_dns
-    zone_id                = module.load_balancing.ext_alb_zone_id
-    evaluate_target_health = true
+    name                   = module.cdn.cloudfront_domain_name
+    zone_id                = module.cdn.cloudfront_hosted_zone_id
+    evaluate_target_health = false
   }
 }
 
