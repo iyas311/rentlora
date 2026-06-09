@@ -69,5 +69,7 @@ async def upload_property_image(property_id: int, file: UploadFile) -> str:
         logger.error(f"Failed to upload {name} to S3: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to upload image to storage")
     
-    # Return the S3 URL (assuming the bucket allows public read or is behind CloudFront)
+    # Return the CloudFront URL if available, otherwise fallback to raw S3 URL
+    if settings.cloudfront_domain:
+        return f"https://{settings.cloudfront_domain}/{name}"
     return f"https://{settings.s3_bucket}.s3.{settings.aws_default_region}.amazonaws.com/{name}"

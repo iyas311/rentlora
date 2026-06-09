@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     jwt_secret: str = ""
     uploads_dir: str = "./uploads"
     s3_bucket: str = ""
+    cloudfront_domain: str = ""
     aws_default_region: str = "us-east-1"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
@@ -30,12 +31,18 @@ def fetch_aws_config():
     db_endpoint = ssm.get_parameter(Name=f"/rentlora/{env}/db-endpoint")['Parameter']['Value']
     s3_bucket = ssm.get_parameter(Name=f"/rentlora/{env}/s3-image-bucket")['Parameter']['Value']
     
+    try:
+        cf_domain = ssm.get_parameter(Name=f"/rentlora/{env}/cloudfront-domain")['Parameter']['Value']
+    except Exception:
+        cf_domain = ""
+    
     database_url = f"postgresql+asyncpg://postgres:{db_pass}@{db_endpoint}:5432/rentlora"
     
     return {
         "database_url": database_url,
         "jwt_secret": jwt_sec,
-        "s3_bucket": s3_bucket
+        "s3_bucket": s3_bucket,
+        "cloudfront_domain": cf_domain
     }
 
 @lru_cache
