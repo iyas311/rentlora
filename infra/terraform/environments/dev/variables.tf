@@ -33,7 +33,7 @@ variable "xai_api_key" {
   default     = ""
 }
 
-variable "admin_email" {
-  description = "Your email address to verify in AWS SES for testing email sending"
-  type        = string
+variable "admin_emails" {
+  description = "A list of email addresses to verify in AWS SES for testing email sending"
+  type        = list(string)
 }

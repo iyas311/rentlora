@@ -2,7 +2,8 @@
 # Verifies a single email address so you can send test emails in dev mode.
 # In production, you would verify an entire domain (aws_ses_domain_identity).
 resource "aws_ses_email_identity" "admin" {
-  email = var.admin_email
+  for_each = toset(var.admin_emails)
+  email    = each.value
 }
 
 # --- AWS SNS (Simple Notification Service) ---

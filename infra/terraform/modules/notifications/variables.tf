@@ -8,7 +8,7 @@ variable "environment" {
   description = "Environment (dev or prod)"
 }
 
-variable "admin_email" {
-  type        = string
-  description = "Email address to verify in SES for testing/sending emails"
+variable "admin_emails" {
+  type        = list(string)
+  description = "A list of email addresses to verify in SES for testing/sending emails"
 }

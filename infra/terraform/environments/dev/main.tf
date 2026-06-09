@@ -95,7 +95,7 @@ module "notifications" {
 
   project_name = local.project_name
   environment  = local.environment
-  admin_email  = var.admin_email
+  admin_emails = var.admin_emails
 }
 
 resource "aws_route53_record" "app" {

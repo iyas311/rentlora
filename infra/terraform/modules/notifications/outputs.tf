@@ -1,6 +1,6 @@
-output "ses_identity_arn" {
-  value       = aws_ses_email_identity.admin.arn
-  description = "The ARN of the SES identity"
+output "ses_identity_arns" {
+  value       = [for identity in aws_ses_email_identity.admin : identity.arn]
+  description = "The ARNs of the verified SES identities"
 }
 
 output "sns_topic_arn" {
