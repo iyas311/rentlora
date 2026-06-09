@@ -19,6 +19,18 @@ resource "aws_launch_template" "frontend" {
     # Get Internal ALB DNS from Terraform variable
     export INT_ALB_DNS="${var.int_alb_dns}"
 
+    # Configure Docker to send logs to CloudWatch
+    cat << 'DOCKER_CFG' | sudo tee /etc/docker/daemon.json
+    {
+      "log-driver": "awslogs",
+      "log-opts": {
+        "awslogs-region": "us-east-1",
+        "awslogs-group": "/${var.project_name}/${var.environment}/frontend"
+      }
+    }
+    DOCKER_CFG
+    sudo systemctl restart docker
+
     git clone ${var.repo_url} /home/ubuntu/rentlora
     cd /home/ubuntu/rentlora/frontend
 
@@ -108,6 +120,18 @@ resource "aws_launch_template" "backend" {
     #!/bin/bash
     sudo apt-get update -y
     sudo apt-get install -y docker.io docker-compose git awscli jq
+
+    # Configure Docker to send logs to CloudWatch
+    cat << 'DOCKER_CFG' | sudo tee /etc/docker/daemon.json
+    {
+      "log-driver": "awslogs",
+      "log-opts": {
+        "awslogs-region": "us-east-1",
+        "awslogs-group": "/${var.project_name}/${var.environment}/backend"
+      }
+    }
+    DOCKER_CFG
+    sudo systemctl restart docker
 
     git clone ${var.repo_url} /home/ubuntu/rentlora
     cd /home/ubuntu/rentlora/backend

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -6,12 +6,13 @@ from auth import create_access_token, create_refresh_token, decode_token, get_cu
 from database import get_db
 from models import User
 from schemas import AuthResponse, LoginRequest, RefreshRequest, RefreshResponse, RegisterRequest, UserOut
+from email_utils import send_welcome_email
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/register", response_model=AuthResponse)
-async def register(payload: RegisterRequest, db: AsyncSession = Depends(get_db)):
+async def register(payload: RegisterRequest, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
     if payload.password != payload.confirm_password:
         raise HTTPException(status_code=400, detail="Passwords do not match")
     existing = await db.scalar(select(User).where(User.email == payload.email.lower()))
@@ -26,6 +27,10 @@ async def register(payload: RegisterRequest, db: AsyncSession = Depends(get_db))
     db.add(user)
     await db.commit()
     await db.refresh(user)
+
+    # Automatically send the AWS SES welcome email in the background!
+    background_tasks.add_task(send_welcome_email, user.email, user.name)
+
     return AuthResponse(
         user=UserOut.model_validate(user),
         access_token=create_access_token(user.id, user.email, user.role),
