@@ -1,0 +1,10 @@
+{
+    "InstanceIds": ["i-0d422a71186d782c7"],
+    "DocumentName": "AWS-RunShellScript",
+    "Parameters": {
+        "commands": [
+            "cd /home/ubuntu/rentlora/backend",
+            "sudo docker compose exec -T property-service python seed.py"
+        ]
+    }
+}
