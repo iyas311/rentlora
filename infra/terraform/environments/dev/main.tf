@@ -1,3 +1,13 @@
+terraform {
+  backend "s3" {
+    bucket         = "rentlora-terraform-state-dev"
+    key            = "dev/terraform.tfstate"
+    region         = "us-east-1"
+    dynamodb_table = "rentlora-terraform-locks-dev"
+    encrypt        = true
+  }
+}
+
 provider "aws" {
   region = "us-east-1"
 }
