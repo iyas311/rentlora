@@ -34,7 +34,7 @@ resource "aws_launch_template" "frontend" {
         root /usr/share/nginx/html;
         index index.html;
         location / {
-          try_files $$uri $$uri/ /index.html;
+          try_files $uri $uri/ /index.html;
         }
         location /api/ {
           proxy_pass http://${var.int_alb_dns}:80;
