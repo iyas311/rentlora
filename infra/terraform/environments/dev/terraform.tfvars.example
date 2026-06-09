@@ -1,0 +1,11 @@
+# Copy this file to "terraform.tfvars" and fill in your actual values.
+# Do NOT commit your actual terraform.tfvars file to GitHub!
+
+db_password = "my_super_secret_database_password_123"
+
+jwt_secret  = "8f7b3c2d1e9a4f6b8c0d2e4f6a8b0c2d4e6f8a0b2c4d6e8f0a2b4c6d8e0f2a4b"
+
+xai_api_key = "xai-1234567890abcdef"
+
+# AWS SES needs this to verify your email so the app can send booking receipts
+admin_email = "your-real-email@gmail.com"
