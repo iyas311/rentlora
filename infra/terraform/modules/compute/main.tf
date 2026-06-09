@@ -72,7 +72,7 @@ resource "aws_autoscaling_policy" "frontend_cpu" {
 resource "aws_launch_template" "backend" {
   name_prefix   = "${var.project_name}-backend-"
   image_id      = var.ami_id
-  instance_type = "t3.medium"
+  instance_type = "t3.micro"
   key_name      = var.key_name
 
   vpc_security_group_ids = [var.backend_sg_id]
