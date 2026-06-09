@@ -108,6 +108,14 @@ module "notifications" {
   admin_emails = var.admin_emails
 }
 
+# --- 8. CONTAINER REGISTRY ---
+module "registry" {
+  source = "../../modules/registry"
+
+  project_name = local.project_name
+  environment  = local.environment
+}
+
 resource "aws_route53_record" "app" {
   zone_id = module.domain.zone_id
   name    = var.domain_name

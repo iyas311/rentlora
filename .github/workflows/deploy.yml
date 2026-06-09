@@ -1,0 +1,119 @@
+name: Build and Deploy Rentlora
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: # Allows you to manually trigger the pipeline from the GitHub UI
+
+env:
+  AWS_REGION: us-east-1
+  AWS_ACCOUNT_ID: "280646578520"
+  PROJECT: rentlora-dev
+
+jobs:
+  build-and-push:
+    name: Build Docker Images and Push to ECR
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and Push Booking Service
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ env.PROJECT }}-booking-service
+          IMAGE_TAG: latest
+        run: |
+          cd backend/booking-service
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+      - name: Build and Push Property Service
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ env.PROJECT }}-property-service
+          IMAGE_TAG: latest
+        run: |
+          cd backend/property-service
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+      - name: Build and Push AI Service
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ env.PROJECT }}-ai-service
+          IMAGE_TAG: latest
+        run: |
+          cd backend/ai-service
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+      - name: Build and Push Frontend
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ env.PROJECT }}-frontend
+          IMAGE_TAG: latest
+        run: |
+          cd frontend
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+  deploy:
+    name: Trigger EC2 Deployment
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy to Backend Servers
+        run: |
+          # Find all running Backend instances in the Auto-Scaling Group
+          INSTANCE_IDS=$(aws autoscaling describe-auto-scaling-groups --auto-scaling-group-names rentlora-dev-backend-asg --query "AutoScalingGroups[0].Instances[?LifecycleState=='InService'].InstanceId" --output text)
+          
+          if [ -z "$INSTANCE_IDS" ]; then
+            echo "No healthy backend instances found!"
+            exit 0
+          fi
+
+          echo "Deploying to Backend Instances: $INSTANCE_IDS"
+          aws ssm send-command \
+            --instance-ids $INSTANCE_IDS \
+            --document-name "AWS-RunShellScript" \
+            --parameters 'commands=["cd /home/ubuntu/rentlora/backend", "docker compose pull", "docker compose up -d"]' \
+            --comment "Deploy latest ECR images"
+
+      - name: Deploy to Frontend Servers
+        run: |
+          # Find all running Frontend instances in the Auto-Scaling Group
+          INSTANCE_IDS=$(aws autoscaling describe-auto-scaling-groups --auto-scaling-group-names rentlora-dev-frontend-asg --query "AutoScalingGroups[0].Instances[?LifecycleState=='InService'].InstanceId" --output text)
+          
+          if [ -z "$INSTANCE_IDS" ]; then
+            echo "No healthy frontend instances found!"
+            exit 0
+          fi
+
+          echo "Deploying to Frontend Instances: $INSTANCE_IDS"
+          aws ssm send-command \
+            --instance-ids $INSTANCE_IDS \
+            --document-name "AWS-RunShellScript" \
+            --parameters 'commands=["cd /home/ubuntu/rentlora/frontend", "docker pull 280646578520.dkr.ecr.us-east-1.amazonaws.com/rentlora-dev-frontend:latest", "docker stop frontend || true", "docker rm frontend || true", "docker run -d --name frontend -p 80:80 --env-file .env 280646578520.dkr.ecr.us-east-1.amazonaws.com/rentlora-dev-frontend:latest"]' \
+            --comment "Deploy latest ECR frontend image"

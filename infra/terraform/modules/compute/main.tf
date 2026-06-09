@@ -1,3 +1,5 @@
+data "aws_caller_identity" "current" {}
+
 # --- FRONTEND LAUNCH TEMPLATE ---
 resource "aws_launch_template" "frontend" {
   name_prefix   = "${var.project_name}-frontend-"
@@ -25,44 +27,20 @@ resource "aws_launch_template" "frontend" {
       "log-driver": "awslogs",
       "log-opts": {
         "awslogs-region": "us-east-1",
-        "awslogs-group": "/${var.project_name}/${var.environment}/frontend"
+        "awslogs-group": "/rentlora/${var.environment}/frontend"
       }
     }
     DOCKER_CFG
     sudo systemctl restart docker
 
-    git clone ${var.repo_url} /home/ubuntu/rentlora
-    cd /home/ubuntu/rentlora/frontend
+    # Log into AWS ECR
+    aws ecr get-login-password --region us-east-1 | sudo docker login --username AWS --password-stdin ${data.aws_caller_identity.current.account_id}.dkr.ecr.us-east-1.amazonaws.com
 
-    # OVERWRITE NGINX FOR AWS INTERNAL ALB
-    cat << 'NGINX' > nginx.conf
-    events {}
-    http {
-      resolver 169.254.169.253 valid=5s;
-      include /etc/nginx/mime.types;
-      server {
-        listen 80;
-        client_max_body_size 50M;
-        root /usr/share/nginx/html;
-        index index.html;
-        location / {
-          try_files $uri $uri/ /index.html;
-        }
-        location /api/ {
-          proxy_pass http://${var.int_alb_dns}:80;
-        }
-        location /uploads/ {
-          proxy_pass http://${var.int_alb_dns}:80;
-        }
-      }
-    }
-    NGINX
-
-    # Build the image
-    sudo docker build -t rentlora-frontend .
-
-    # Run the container
-    sudo docker run -d -p 80:80 rentlora-frontend
+    # Pull and run the pre-built Frontend image
+    sudo docker pull ${data.aws_caller_identity.current.account_id}.dkr.ecr.us-east-1.amazonaws.com/rentlora-${var.environment}-frontend:latest
+    sudo docker run -d --name frontend -p 80:80 \
+      -e INT_ALB_DNS="${var.int_alb_dns}" \
+      ${data.aws_caller_identity.current.account_id}.dkr.ecr.us-east-1.amazonaws.com/rentlora-${var.environment}-frontend:latest
   EOF
   )
 }
@@ -127,19 +105,49 @@ resource "aws_launch_template" "backend" {
       "log-driver": "awslogs",
       "log-opts": {
         "awslogs-region": "us-east-1",
-        "awslogs-group": "/${var.project_name}/${var.environment}/backend"
+        "awslogs-group": "/rentlora/${var.environment}/backend"
       }
     }
     DOCKER_CFG
     sudo systemctl restart docker
 
-    git clone ${var.repo_url} /home/ubuntu/rentlora
+    # Log into AWS ECR
+    aws ecr get-login-password --region us-east-1 | sudo docker login --username AWS --password-stdin ${data.aws_caller_identity.current.account_id}.dkr.ecr.us-east-1.amazonaws.com
+
+    # Create the production docker-compose file dynamically
+    mkdir -p /home/ubuntu/rentlora/backend
     cd /home/ubuntu/rentlora/backend
 
-    # Ensure ENV is set so config.py pulls from Secrets Manager/Parameter Store correctly
-    echo "ENV=${var.environment}" > .env
+    cat << 'COMPOSE' > docker-compose.yml
+    version: "3.9"
+    services:
+      property-service:
+        image: ${data.aws_caller_identity.current.account_id}.dkr.ecr.us-east-1.amazonaws.com/rentlora-${var.environment}-property-service:latest
+        ports:
+          - "8001:8001"
+        environment:
+          - ENV=${var.environment}
+        restart: always
 
-    sudo docker compose up -d --build
+      booking-service:
+        image: ${data.aws_caller_identity.current.account_id}.dkr.ecr.us-east-1.amazonaws.com/rentlora-${var.environment}-booking-service:latest
+        ports:
+          - "8002:8002"
+        environment:
+          - ENV=${var.environment}
+        restart: always
+
+      ai-service:
+        image: ${data.aws_caller_identity.current.account_id}.dkr.ecr.us-east-1.amazonaws.com/rentlora-${var.environment}-ai-service:latest
+        ports:
+          - "8003:8003"
+        environment:
+          - ENV=${var.environment}
+        restart: always
+    COMPOSE
+
+    sudo docker compose pull
+    sudo docker compose up -d
   EOF
   )
 }
