@@ -75,8 +75,8 @@ resource "aws_launch_template" "backend" {
     git clone ${var.repo_url} /home/ubuntu/rentlora
     cd /home/ubuntu/rentlora/backend
 
-    # Ensure ENV=production is set so config.py pulls from Secrets Manager/Parameter Store
-    echo "ENV=production" > .env
+    # Ensure ENV is set so config.py pulls from Secrets Manager/Parameter Store correctly
+    echo "ENV=${var.environment}" > .env
 
     sudo docker-compose up -d --build
   EOF

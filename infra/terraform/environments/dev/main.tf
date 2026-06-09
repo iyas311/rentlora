@@ -62,6 +62,7 @@ module "compute" {
   source = "../../modules/compute"
 
   project_name              = "${local.project_name}-${local.environment}"
+  environment               = local.environment
   ami_id                    = local.ami_id
   key_name                  = local.key_name
   repo_url                  = local.repo_url

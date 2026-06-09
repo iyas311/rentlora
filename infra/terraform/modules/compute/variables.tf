@@ -3,6 +3,11 @@ variable "project_name" {
   description = "Project name"
 }
 
+variable "environment" {
+  type        = string
+  description = "Environment string (e.g. dev or prod)"
+}
+
 variable "ami_id" {
   type        = string
   description = "AMI ID for instances"

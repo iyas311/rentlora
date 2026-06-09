@@ -17,19 +17,20 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 def fetch_aws_config():
-    if os.getenv("ENV") != "production":
+    env = os.getenv("ENV", "local")
+    if env not in ["dev", "prod"]:
         return {}
         
     ssm = boto3.client('ssm', region_name='us-east-1')
     secrets = boto3.client('secretsmanager', region_name='us-east-1')
     
-    db_pass = secrets.get_secret_value(SecretId="/rentlora/prod/db-password")['SecretString']
-    jwt_sec = secrets.get_secret_value(SecretId="/rentlora/prod/jwt-secret")['SecretString']
+    db_pass = secrets.get_secret_value(SecretId=f"/rentlora/{env}/db-password")['SecretString']
+    jwt_sec = secrets.get_secret_value(SecretId=f"/rentlora/{env}/jwt-secret")['SecretString']
     
-    db_endpoint = ssm.get_parameter(Name="/rentlora/prod/db-endpoint")['Parameter']['Value']
-    s3_bucket = ssm.get_parameter(Name="/rentlora/prod/s3-image-bucket")['Parameter']['Value']
+    db_endpoint = ssm.get_parameter(Name=f"/rentlora/{env}/db-endpoint")['Parameter']['Value']
+    s3_bucket = ssm.get_parameter(Name=f"/rentlora/{env}/s3-image-bucket")['Parameter']['Value']
     
-    database_url = f"postgresql+asyncpg://rentlora_admin:{db_pass}@{db_endpoint}:5432/rentlora"
+    database_url = f"postgresql+asyncpg://postgres:{db_pass}@{db_endpoint}:5432/rentlora"
     
     return {
         "database_url": database_url,

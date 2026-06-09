@@ -15,13 +15,18 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 def fetch_aws_config():
-    if os.getenv("ENV") != "production":
+    env = os.getenv("ENV", "local")
+    if env not in ["dev", "prod"]:
         return {}
         
     secrets = boto3.client('secretsmanager', region_name='us-east-1')
     
-    jwt_sec = secrets.get_secret_value(SecretId="/rentlora/prod/jwt-secret")['SecretString']
-    xai_key = secrets.get_secret_value(SecretId="/rentlora/prod/xai-api-key")['SecretString']
+    jwt_sec = secrets.get_secret_value(SecretId=f"/rentlora/{env}/jwt-secret")['SecretString']
+    
+    try:
+        xai_key = secrets.get_secret_value(SecretId=f"/rentlora/{env}/xai-api-key")['SecretString']
+    except Exception:
+        xai_key = ""
     
     return {
         "jwt_secret": jwt_sec,
