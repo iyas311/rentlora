@@ -123,5 +123,26 @@ resource "aws_route53_record" "www" {
 }
 
 output "website_url" {
-  value = module.domain.domain_url
+  value       = module.domain.domain_url
+  description = "The main entrypoint for the application"
+}
+
+output "database_endpoint" {
+  value       = module.database.db_endpoint
+  description = "The direct connection string for the PostgreSQL Database"
+}
+
+output "internal_api_endpoint" {
+  value       = module.load_balancing.int_alb_dns
+  description = "The internal Load Balancer DNS used by microservices to talk to each other"
+}
+
+output "s3_bucket" {
+  value       = module.storage.s3_bucket_id
+  description = "The private S3 bucket holding property images"
+}
+
+output "cloudfront_cdn_domain" {
+  value       = module.storage.cloudfront_domain
+  description = "The CloudFront Global CDN URL that serves the images"
 }
