@@ -39,7 +39,7 @@ resource "aws_autoscaling_group" "frontend" {
   target_group_arns   = [var.frontend_tg_arn]
 
   min_size         = 1
-  max_size         = 3
+  max_size         = 2
   desired_capacity = 1
 
   launch_template {
@@ -51,6 +51,20 @@ resource "aws_autoscaling_group" "frontend" {
     key                 = "Name"
     value               = "${var.project_name}-frontend"
     propagate_at_launch = true
+  }
+}
+
+# --- FRONTEND SCALING POLICY (CPU) ---
+resource "aws_autoscaling_policy" "frontend_cpu" {
+  name                   = "${var.project_name}-frontend-cpu-policy"
+  policy_type            = "TargetTrackingScaling"
+  autoscaling_group_name = aws_autoscaling_group.frontend.name
+
+  target_tracking_configuration {
+    predefined_metric_specification {
+      predefined_metric_type = "ASGAverageCPUUtilization"
+    }
+    target_value = 70.0
   }
 }
 
@@ -96,7 +110,7 @@ resource "aws_autoscaling_group" "backend" {
   ]
 
   min_size         = 1
-  max_size         = 3
+  max_size         = 2
   desired_capacity = 1
 
   launch_template {
@@ -108,5 +122,19 @@ resource "aws_autoscaling_group" "backend" {
     key                 = "Name"
     value               = "${var.project_name}-backend"
     propagate_at_launch = true
+  }
+}
+
+# --- BACKEND SCALING POLICY (CPU) ---
+resource "aws_autoscaling_policy" "backend_cpu" {
+  name                   = "${var.project_name}-backend-cpu-policy"
+  policy_type            = "TargetTrackingScaling"
+  autoscaling_group_name = aws_autoscaling_group.backend.name
+
+  target_tracking_configuration {
+    predefined_metric_specification {
+      predefined_metric_type = "ASGAverageCPUUtilization"
+    }
+    target_value = 70.0
   }
 }
