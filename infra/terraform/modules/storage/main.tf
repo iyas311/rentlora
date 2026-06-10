@@ -3,6 +3,10 @@
 resource "aws_s3_bucket" "images" {
   bucket = "${var.project_name}-${var.environment}-property-images"
 
+  lifecycle {
+    prevent_destroy = true
+  }
+
   tags = {
     Name        = "${var.project_name}-property-images"
     Environment = var.environment
