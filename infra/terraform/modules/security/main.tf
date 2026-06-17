@@ -33,7 +33,7 @@ resource "aws_security_group" "ext_alb" {
 
 resource "aws_security_group" "frontend_ec2" {
   name        = "${var.project_name}-frontend-ec2-sg"
-  description = "Allow HTTP from External ALB"
+  description = "Allow HTTP from External ALB and SSH"
   vpc_id      = var.vpc_id
 
   ingress {
@@ -41,6 +41,13 @@ resource "aws_security_group" "frontend_ec2" {
     to_port         = 80
     protocol        = "tcp"
     security_groups = [aws_security_group.ext_alb.id]
+  }
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   egress {
