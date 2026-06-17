@@ -2,7 +2,7 @@
 resource "aws_cloudfront_distribution" "main" {
   enabled             = true
   is_ipv6_enabled     = true
-  aliases             = [var.domain_name, "www.${var.domain_name}"]
+  aliases             = var.domain_name != null ? [var.domain_name, "www.${var.domain_name}"] : []
   
   # Point CloudFront to the External ALB
   origin {
@@ -12,7 +12,7 @@ resource "aws_cloudfront_distribution" "main" {
     custom_origin_config {
       http_port              = 80
       https_port             = 443
-      origin_protocol_policy = "https-only" # Connect securely to the ALB over HTTPS
+      origin_protocol_policy = var.certificate_arn != null ? "https-only" : "http-only"
       origin_ssl_protocols   = ["TLSv1.2"]
     }
   }
@@ -31,7 +31,7 @@ resource "aws_cloudfront_distribution" "main" {
       }
     }
 
-    viewer_protocol_policy = "redirect-to-https"
+    viewer_protocol_policy = var.certificate_arn != null ? "redirect-to-https" : "allow-all"
     
     # We set TTLs to 0 because the React App and API are dynamic.
     # We want CloudFront to act as a security shield (WAF) and SSL terminator, 
@@ -47,10 +47,20 @@ resource "aws_cloudfront_distribution" "main" {
     }
   }
 
-  viewer_certificate {
-    acm_certificate_arn      = var.certificate_arn
-    ssl_support_method       = "sni-only"
-    minimum_protocol_version = "TLSv1.2_2021"
+  dynamic "viewer_certificate" {
+    for_each = var.certificate_arn != null ? [1] : []
+    content {
+      acm_certificate_arn      = var.certificate_arn
+      ssl_support_method       = "sni-only"
+      minimum_protocol_version = "TLSv1.2_2021"
+    }
+  }
+
+  dynamic "viewer_certificate" {
+    for_each = var.certificate_arn == null ? [1] : []
+    content {
+      cloudfront_default_certificate = true
+    }
   }
 
   # NOTE: In the future, you can attach an aws_wafv2_web_acl here using the `web_acl_id` argument!

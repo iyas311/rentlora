@@ -1,9 +1,10 @@
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, Numeric, String, Text, func
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
+from pgvector.sqlalchemy import Vector
 
 from database import Base
 
@@ -23,6 +24,14 @@ class User(Base):
 
 class Property(Base):
     __tablename__ = "properties"
+    __table_args__ = (
+        Index("idx_properties_city", "city"),
+        Index("idx_properties_type", "property_type"),
+        Index("idx_properties_price", "price_per_night"),
+        Index("idx_properties_available", "is_available"),
+        Index("idx_properties_host", "host_id"),
+    )
+
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     host_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     title: Mapped[str] = mapped_column(String(200), nullable=False)
@@ -38,12 +47,18 @@ class Property(Base):
     amenities: Mapped[list] = mapped_column(JSONB, default=list)
     images: Mapped[list] = mapped_column(JSONB, default=list)
     is_available: Mapped[bool] = mapped_column(Boolean, default=True)
+    embedding = mapped_column(Vector(1024))
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
 
 class Booking(Base):
     __tablename__ = "bookings"
+    __table_args__ = (
+        Index("idx_bookings_property_status", "property_id", "status"),
+        Index("idx_bookings_guest", "guest_id"),
+    )
+
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     guest_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"))
     property_id: Mapped[int] = mapped_column(ForeignKey("properties.id"))
@@ -52,6 +67,7 @@ class Booking(Base):
     guests_count: Mapped[int] = mapped_column(Integer, nullable=False)
     total_nights: Mapped[int] = mapped_column(Integer, nullable=False)
     total_price: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
+    platform_fee: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=0.00)
     status: Mapped[str] = mapped_column(String(20), default="confirmed")
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
@@ -59,6 +75,10 @@ class Booking(Base):
 
 class Review(Base):
     __tablename__ = "reviews"
+    __table_args__ = (
+        Index("idx_reviews_property", "property_id"),
+    )
+
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     booking_id: Mapped[int] = mapped_column(ForeignKey("bookings.id"), unique=True)
     property_id: Mapped[int] = mapped_column(ForeignKey("properties.id"))

@@ -1,26 +1,23 @@
 import asyncio
 import logging
-import os
 import time
 import uuid
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
 from config import get_settings
 from database import Base, engine
 from logging_config import setup_logging
-from metrics import emit_metric
 import models  # noqa: F401
-from routes import properties_router, reviews_router, search_router
+from routes.admin import router as admin_router
 
 settings = get_settings()
-setup_logging("property-service")
-logger = logging.getLogger("property-service")
+setup_logging("admin-service")
+logger = logging.getLogger("admin-service")
 
-app = FastAPI(title="Rentlora Property Service", version=settings.app_version)
+app = FastAPI(title="Rentlora Admin Service", version=settings.app_version)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -28,13 +25,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-METRICS_NAMESPACE = "Rentlora"
-SERVICE_DIM = {"Service": "property-service"}
-
 
 @app.middleware("http")
 async def observability_middleware(request: Request, call_next):
-    """Log every request as structured JSON and emit CloudWatch metrics."""
     request_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
     start = time.perf_counter()
 
@@ -54,15 +47,10 @@ async def observability_middleware(request: Request, call_next):
 
     if status >= 500:
         logger.error("request completed", extra=log_data)
-        emit_metric(METRICS_NAMESPACE, "ErrorCount_5xx", 1, dimensions=SERVICE_DIM)
     elif status >= 400:
         logger.warning("request completed", extra=log_data)
-        emit_metric(METRICS_NAMESPACE, "ErrorCount_4xx", 1, dimensions=SERVICE_DIM)
     else:
         logger.info("request completed", extra=log_data)
-
-    emit_metric(METRICS_NAMESPACE, "RequestCount", 1, dimensions=SERVICE_DIM)
-    emit_metric(METRICS_NAMESPACE, "RequestLatency", duration_ms, unit="Milliseconds", dimensions=SERVICE_DIM)
 
     return response
 
@@ -81,17 +69,12 @@ async def startup():
                 raise e
             logger.warning(f"Database initialization attempt {attempt + 1} failed. Retrying in 2 seconds...")
             await asyncio.sleep(2)
-    logger.info("property-service started on port 8001")
+    logger.info("admin-service started on port 8004")
 
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "service": "property-service", "db": "connected"}
+    return {"status": "ok", "service": "admin-service", "db": "connected"}
 
 
-os.makedirs(settings.uploads_dir, exist_ok=True)
-app.mount("/uploads", StaticFiles(directory=settings.uploads_dir), name="uploads")
-
-app.include_router(properties_router, prefix="/api")
-app.include_router(search_router, prefix="/api")
-app.include_router(reviews_router, prefix="/api")
+app.include_router(admin_router, prefix="/api")

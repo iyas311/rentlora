@@ -6,15 +6,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    app_name: str = "property-service"
+    app_name: str = "booking-service"
     app_version: str = "1.0.0"
     database_url: str = ""
     jwt_secret: str = ""
-    uploads_dir: str = "./uploads"
-    s3_bucket: str = ""
-    cloudfront_domain: str = ""
     aws_default_region: str = "us-east-1"
-    internal_api_url: str = "http://localhost:8003" # default local fallback
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
@@ -30,31 +26,15 @@ def fetch_aws_config():
     jwt_sec = secrets.get_secret_value(SecretId=f"/rentlora/{env}/jwt-secret")['SecretString']
     
     db_endpoint = ssm.get_parameter(Name=f"/rentlora/{env}/db-endpoint")['Parameter']['Value']
-    s3_bucket = ssm.get_parameter(Name=f"/rentlora/{env}/s3-image-bucket")['Parameter']['Value']
-    
-    try:
-        int_alb = ssm.get_parameter(Name=f"/rentlora/{env}/internal-alb-dns")['Parameter']['Value']
-        internal_api_url = f"http://{int_alb}"
-    except Exception:
-        internal_api_url = "http://ai-service:8003"
-        
-    try:
-        cf_domain = ssm.get_parameter(Name=f"/rentlora/{env}/cloudfront-domain")['Parameter']['Value']
-    except Exception:
-        cf_domain = ""
     
     database_url = f"postgresql+asyncpg://postgres:{db_pass}@{db_endpoint}/rentlora"
     
     return {
         "database_url": database_url,
-        "jwt_secret": jwt_sec,
-        "s3_bucket": s3_bucket,
-        "cloudfront_domain": cf_domain,
-        "internal_api_url": internal_api_url
+        "jwt_secret": jwt_sec
     }
 
 @lru_cache
 def get_settings() -> Settings:
     aws_values = fetch_aws_config()
     return Settings(**aws_values)
-

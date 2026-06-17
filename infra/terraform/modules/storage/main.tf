@@ -129,3 +129,122 @@ resource "aws_ssm_parameter" "cloudfront_domain" {
   type        = "String"
   value       = aws_cloudfront_distribution.cdn.domain_name
 }
+
+# =============================================================
+# S3 CORS — Required for presigned URL uploads from the browser
+# =============================================================
+
+resource "aws_s3_bucket_cors_configuration" "images" {
+  bucket = aws_s3_bucket.images.id
+
+  cors_rule {
+    allowed_headers = ["*"]
+    allowed_methods = ["PUT"]
+    allowed_origins = ["*"]
+    max_age_seconds = 3600
+  }
+
+  cors_rule {
+    allowed_methods = ["GET", "HEAD"]
+    allowed_origins = ["*"]
+  }
+}
+
+# =============================================================
+# LAMBDA — Auto-resize images on S3 upload
+# =============================================================
+
+# Package the Lambda function code
+data "archive_file" "resize_lambda" {
+  type        = "zip"
+  source_file = "${path.module}/lambda/resize.py"
+  output_path = "${path.module}/lambda/resize.zip"
+}
+
+# IAM role for Lambda
+resource "aws_iam_role" "resize_lambda" {
+  name = "${var.project_name}-${var.environment}-resize-lambda-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "lambda.amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+# Lambda needs to read/write S3 and write CloudWatch Logs
+resource "aws_iam_role_policy" "resize_lambda_s3" {
+  name = "s3-read-write"
+  role = aws_iam_role.resize_lambda.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:PutObject"
+        ]
+        Resource = "${aws_s3_bucket.images.arn}/*"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "resize_lambda_logs" {
+  role       = aws_iam_role.resize_lambda.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+# Lambda function
+resource "aws_lambda_function" "resize" {
+  function_name    = "${var.project_name}-${var.environment}-image-resize"
+  description      = "Auto-resize property images into thumbnail and medium variants"
+  role             = aws_iam_role.resize_lambda.arn
+  handler          = "resize.handler"
+  runtime          = "python3.11"
+  timeout          = 60
+  memory_size      = 512
+  filename         = data.archive_file.resize_lambda.output_path
+  source_code_hash = data.archive_file.resize_lambda.output_base64sha256
+
+  layers = [
+    # Klayers — community-maintained Lambda layer for Pillow on Python 3.11
+    "arn:aws:lambda:us-east-1:770693421928:layer:Klayers-p311-Pillow:8"
+  ]
+
+  tags = {
+    Name        = "${var.project_name}-image-resize"
+    Environment = var.environment
+  }
+}
+
+# Allow S3 to invoke the Lambda function
+resource "aws_lambda_permission" "s3_invoke" {
+  statement_id  = "AllowS3Invoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.resize.function_name
+  principal     = "s3.amazonaws.com"
+  source_arn    = aws_s3_bucket.images.arn
+}
+
+# S3 event notification — trigger Lambda on PutObject in originals/
+resource "aws_s3_bucket_notification" "resize_trigger" {
+  bucket = aws_s3_bucket.images.id
+
+  lambda_function {
+    lambda_function_arn = aws_lambda_function.resize.arn
+    events              = ["s3:ObjectCreated:*"]
+    filter_prefix       = "originals/"
+  }
+
+  depends_on = [aws_lambda_permission.s3_invoke]
+}

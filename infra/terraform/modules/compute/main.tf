@@ -157,6 +157,14 @@ resource "aws_launch_template" "backend" {
         environment:
           - ENV=${var.environment}
         restart: always
+
+      admin-service:
+        image: ${data.aws_caller_identity.current.account_id}.dkr.ecr.us-east-1.amazonaws.com/rentlora-${var.environment}-admin-service:latest
+        ports:
+          - "8004:8004"
+        environment:
+          - ENV=${var.environment}
+        restart: always
     COMPOSE
 
     sudo docker compose pull
@@ -170,11 +178,12 @@ resource "aws_autoscaling_group" "backend" {
   name                = "${var.project_name}-backend-asg"
   vpc_zone_identifier = var.backend_subnet_ids
   
-  # Attach all three backend target groups
+  # Attach all four backend target groups
   target_group_arns = [
     var.backend_properties_tg_arn,
     var.backend_bookings_tg_arn,
-    var.backend_ai_tg_arn
+    var.backend_ai_tg_arn,
+    var.backend_admin_tg_arn
   ]
 
   min_size         = 1

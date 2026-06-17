@@ -18,3 +18,21 @@ class PropertyDescriptionRequest(BaseModel):
 
 class PropertyDescriptionResponse(BaseModel):
     description: str
+
+
+class EmbedRequest(BaseModel):
+    text: str
+
+
+class EmbedResponse(BaseModel):
+    embedding: list[float]
+
+
+class RagRequest(BaseModel):
+    query: str
+    properties: list[dict]
+
+
+class RagResponse(BaseModel):
+    summary: str
+

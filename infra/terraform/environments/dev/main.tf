@@ -89,6 +89,7 @@ module "compute" {
   backend_properties_tg_arn = module.load_balancing.backend_properties_tg_arn
   backend_bookings_tg_arn   = module.load_balancing.backend_bookings_tg_arn
   backend_ai_tg_arn         = module.load_balancing.backend_ai_tg_arn
+  backend_admin_tg_arn      = module.load_balancing.backend_admin_tg_arn
   int_alb_dns               = module.load_balancing.int_alb_dns
   ec2_instance_profile_name = module.security.ec2_instance_profile_name
 }
@@ -96,8 +97,14 @@ module "compute" {
 module "monitoring" {
   source = "../../modules/monitoring"
 
-  project_name = local.project_name
-  environment  = local.environment
+  project_name           = local.project_name
+  environment            = local.environment
+  sns_topic_arn          = module.notifications.sns_topic_arn
+  ext_alb_arn_suffix     = module.load_balancing.ext_alb_arn_suffix
+  int_alb_arn_suffix     = module.load_balancing.int_alb_arn_suffix
+  rds_instance_id        = module.database.db_instance_id
+  backend_tg_arn_suffix  = module.load_balancing.backend_properties_tg_arn_suffix
+  frontend_tg_arn_suffix = module.load_balancing.frontend_tg_arn_suffix
 }
 
 module "notifications" {
@@ -174,4 +181,9 @@ output "s3_bucket" {
 output "cloudfront_cdn_domain" {
   value       = module.storage.cloudfront_domain
   description = "The CloudFront Global CDN URL that serves the images"
+}
+
+output "monitoring_dashboard_url" {
+  value       = module.monitoring.dashboard_url
+  description = "Direct link to the CloudWatch monitoring dashboard"
 }

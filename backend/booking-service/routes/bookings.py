@@ -176,6 +176,7 @@ async def create_booking(
 
     total_nights = (payload.check_out - payload.check_in).days
     total_price = Decimal(total_nights) * prop.price_per_night
+    platform_fee = total_price * Decimal("0.10")  # 10% platform fee
     booking = Booking(
         guest_id=current_user.id,
         property_id=payload.property_id,
@@ -184,6 +185,7 @@ async def create_booking(
         guests_count=payload.guests_count,
         total_nights=total_nights,
         total_price=total_price,
+        platform_fee=platform_fee,
         status="confirmed",
     )
     db.add(booking)

@@ -25,7 +25,7 @@ async def get_current_user(creds: Optional[HTTPAuthorizationCredentials] = Depen
     payload = decode_token(creds.credentials)
     if payload.get("type") != "access":
         raise HTTPException(status_code=401, detail="Invalid token type")
-    return {"id": int(payload["sub"]), "email": payload.get("email"), "role": payload.get("role")}
+    return {"id": int(payload["sub"]), "email": payload.get("email"), "role": payload.get("role"), "token": creds.credentials}
 
 
 async def get_optional_user(creds: Optional[HTTPAuthorizationCredentials] = Depends(security)):

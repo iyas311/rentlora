@@ -12,6 +12,8 @@ import Profile from "./pages/Profile";
 import PropertyDetail from "./pages/PropertyDetail";
 import Register from "./pages/Register";
 
+import AdminDashboard from "./pages/AdminDashboard";
+
 function Protected({ children, role }) {
   const { isAuthenticated, user } = useAuth();
   if (!isAuthenticated) return <Navigate to="/login" replace />;
@@ -32,6 +34,7 @@ export default function App() {
         <Route path="/bookings/confirm/:id" element={<Protected><BookingConfirm /></Protected>} />
         <Route path="/host/dashboard" element={<Protected role="host"><HostDashboard /></Protected>} />
         <Route path="/host/add-property" element={<Protected role="host"><AddProperty /></Protected>} />
+        <Route path="/admin" element={<Protected role="admin"><AdminDashboard /></Protected>} />
         <Route path="/profile" element={<Protected><Profile /></Protected>} />
       </Routes>
     </Layout>

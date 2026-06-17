@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import time
+import uuid
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -8,11 +9,13 @@ from sqlalchemy import text
 
 from config import get_settings
 from database import Base, engine
+from logging_config import setup_logging
+from metrics import emit_metric
 import models  # noqa: F401
 from routes import auth_router, bookings_router, users_router
 
 settings = get_settings()
-logging.basicConfig(level=logging.INFO)
+setup_logging("booking-service")
 logger = logging.getLogger("booking-service")
 
 app = FastAPI(title="Rentlora Booking Service", version=settings.app_version)
@@ -23,13 +26,42 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+METRICS_NAMESPACE = "Rentlora"
+SERVICE_DIM = {"Service": "booking-service"}
+
 
 @app.middleware("http")
-async def log_requests(request: Request, call_next):
+async def observability_middleware(request: Request, call_next):
+    """Log every request as structured JSON and emit CloudWatch metrics."""
+    request_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
     start = time.perf_counter()
+
     response = await call_next(request)
-    duration_ms = (time.perf_counter() - start) * 1000
-    logger.info("%s %s %s %.2fms", request.method, request.url.path, response.status_code, duration_ms)
+
+    duration_ms = round((time.perf_counter() - start) * 1000, 2)
+    status = response.status_code
+    response.headers["X-Request-ID"] = request_id
+
+    log_data = {
+        "request_id": request_id,
+        "method": request.method,
+        "path": request.url.path,
+        "status": status,
+        "duration_ms": duration_ms,
+    }
+
+    if status >= 500:
+        logger.error("request completed", extra=log_data)
+        emit_metric(METRICS_NAMESPACE, "ErrorCount_5xx", 1, dimensions=SERVICE_DIM)
+    elif status >= 400:
+        logger.warning("request completed", extra=log_data)
+        emit_metric(METRICS_NAMESPACE, "ErrorCount_4xx", 1, dimensions=SERVICE_DIM)
+    else:
+        logger.info("request completed", extra=log_data)
+
+    emit_metric(METRICS_NAMESPACE, "RequestCount", 1, dimensions=SERVICE_DIM)
+    emit_metric(METRICS_NAMESPACE, "RequestLatency", duration_ms, unit="Milliseconds", dimensions=SERVICE_DIM)
+
     return response
 
 
