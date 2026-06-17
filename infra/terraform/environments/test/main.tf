@@ -69,10 +69,12 @@ resource "aws_instance" "app_server" {
   
   iam_instance_profile = module.security.ec2_instance_profile_name
 
-  user_data = base64encode(<<-EOF
+  user_data_base64 = base64encode(<<-EOF
     #!/bin/bash
     sudo apt-get update -y
-    sudo apt-get install -y docker.io docker-compose git awscli jq
+    sudo apt-get install -y git awscli jq curl
+    curl -fsSL https://get.docker.com -o get-docker.sh
+    sudo sh get-docker.sh
 
     # Configure Docker to send logs to CloudWatch
     cat << 'DOCKER_CFG' | sudo tee /etc/docker/daemon.json
@@ -156,7 +158,7 @@ resource "aws_instance" "app_server" {
         image: ${data.aws_caller_identity.current.account_id}.dkr.ecr.us-east-1.amazonaws.com/rentlora-${var.environment}-property-service:latest
         environment:
           - ENV=${var.environment}
-          - DATABASE_URL=${module.database.db_endpoint}
+          - DATABASE_URL=postgresql://${var.db_username}:${var.db_password}@${module.database.db_endpoint}/rentlora
           - JWT_SECRET=${var.jwt_secret}
         restart: always
 
@@ -164,7 +166,7 @@ resource "aws_instance" "app_server" {
         image: ${data.aws_caller_identity.current.account_id}.dkr.ecr.us-east-1.amazonaws.com/rentlora-${var.environment}-booking-service:latest
         environment:
           - ENV=${var.environment}
-          - DATABASE_URL=${module.database.db_endpoint}
+          - DATABASE_URL=postgresql://${var.db_username}:${var.db_password}@${module.database.db_endpoint}/rentlora
           - JWT_SECRET=${var.jwt_secret}
         restart: always
 
@@ -179,7 +181,7 @@ resource "aws_instance" "app_server" {
         image: ${data.aws_caller_identity.current.account_id}.dkr.ecr.us-east-1.amazonaws.com/rentlora-${var.environment}-admin-service:latest
         environment:
           - ENV=${var.environment}
-          - DATABASE_URL=${module.database.db_endpoint}
+          - DATABASE_URL=postgresql://${var.db_username}:${var.db_password}@${module.database.db_endpoint}/rentlora
           - JWT_SECRET=${var.jwt_secret}
         restart: always
 
@@ -187,7 +189,7 @@ resource "aws_instance" "app_server" {
         image: ${data.aws_caller_identity.current.account_id}.dkr.ecr.us-east-1.amazonaws.com/rentlora-${var.environment}-search-service:latest
         environment:
           - ENV=${var.environment}
-          - DATABASE_URL=${module.database.db_endpoint}
+          - DATABASE_URL=postgresql://${var.db_username}:${var.db_password}@${module.database.db_endpoint}/rentlora
           - AWS_DEFAULT_REGION=us-east-1
         restart: always
     COMPOSE
