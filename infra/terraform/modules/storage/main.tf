@@ -38,7 +38,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "images" {
 
 # --- CLOUDFRONT ORIGIN ACCESS CONTROL ---
 resource "aws_cloudfront_origin_access_control" "oac" {
-  name                              = "${var.project_name}-oac"
+  name                              = "${var.project_name}-${var.environment}-oac"
   description                       = "OAC for Property Images Bucket"
   origin_access_control_origin_type = "s3"
   signing_behavior                  = "always"

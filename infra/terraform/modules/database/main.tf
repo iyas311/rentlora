@@ -1,14 +1,14 @@
 resource "aws_db_subnet_group" "main" {
-  name       = "${var.project_name}-db-subnet-group"
+  name       = "${var.project_name}-${var.environment}-db-subnet-group"
   subnet_ids = var.db_subnet_ids
 
   tags = {
-    Name = "${var.project_name}-db-subnet-group"
+    Name = "${var.project_name}-${var.environment}-db-subnet-group"
   }
 }
 
 resource "aws_db_instance" "postgres" {
-  identifier             = "${var.project_name}-db"
+  identifier             = "${var.project_name}-${var.environment}-db"
   engine                 = "postgres"
   engine_version         = "15.7"
   instance_class         = "db.t3.micro"
@@ -24,7 +24,7 @@ resource "aws_db_instance" "postgres" {
   multi_az               = false
 
   tags = {
-    Name = "${var.project_name}-db"
+    Name = "${var.project_name}-${var.environment}-db"
   }
 }
 
