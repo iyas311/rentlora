@@ -4,7 +4,9 @@ locals {
     "frontend",
     "booking-service",
     "property-service",
-    "ai-service"
+    "ai-service",
+    "admin-service",
+    "search-service"
   ]
 }
 

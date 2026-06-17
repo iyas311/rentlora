@@ -42,6 +42,13 @@ module "storage" {
   environment  = var.environment
 }
 
+# 4.5 ECR Registries
+module "registry" {
+  source       = "../../modules/registry"
+  project_name = var.project_name
+  environment  = var.environment
+}
+
 # 5. Single EC2 Node (Replaces ALB + ASG)
 data "aws_ami" "ubuntu" {
   most_recent = true

@@ -4,12 +4,11 @@ on:
   push:
     branches:
       - main
-  workflow_dispatch: # Allows you to manually trigger the pipeline from the GitHub UI
 
 env:
   AWS_REGION: us-east-1
   AWS_ACCOUNT_ID: "280646578520"
-  PROJECT: rentlora-dev
+  PROJECT: rentlora-test
 
 jobs:
   build-and-push:
@@ -90,8 +89,45 @@ jobs:
           exit-code: '0'
           severity: 'CRITICAL,HIGH'
 
-      - name: Push AI Service
-        run: docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.PROJECT }}-ai-service:latest
+      - name: Build and Push Admin Service
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ env.PROJECT }}-admin-service
+          IMAGE_TAG: latest
+        run: |
+          cd backend/admin-service
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+
+      - name: Scan Admin Service Image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ steps.login-ecr.outputs.registry }}/${{ env.PROJECT }}-admin-service:latest
+          format: 'table'
+          exit-code: '0'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Push Admin Service
+        run: docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.PROJECT }}-admin-service:latest
+
+      - name: Build and Push Search Service
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ env.PROJECT }}-search-service
+          IMAGE_TAG: latest
+        run: |
+          cd backend/search-service
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+
+      - name: Scan Search Service Image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ steps.login-ecr.outputs.registry }}/${{ env.PROJECT }}-search-service:latest
+          format: 'table'
+          exit-code: '0'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Push Search Service
+        run: docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.PROJECT }}-search-service:latest
 
       - name: Build and Push Frontend
         env:
