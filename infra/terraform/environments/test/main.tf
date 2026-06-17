@@ -29,7 +29,6 @@ module "database" {
   source        = "../../modules/database"
   project_name  = var.project_name
   environment   = var.environment
-  vpc_id        = module.networking.vpc_id
   db_subnet_ids = module.networking.db_subnet_ids
   rds_sg_id     = module.security.rds_sg_id
   db_username   = var.db_username
