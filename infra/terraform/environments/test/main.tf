@@ -140,6 +140,9 @@ resource "aws_instance" "app_server" {
         location /api/admin {
           proxy_pass http://admin-service:8004;
         }
+        location /api/search/ai {
+          proxy_pass http://search-service:8005;
+        }
         location /uploads/ {
           proxy_pass http://property-service:8001;
         }
@@ -188,6 +191,14 @@ resource "aws_instance" "app_server" {
           - ENV=${var.environment}
           - DATABASE_URL=${module.database.db_endpoint}
           - JWT_SECRET=${var.jwt_secret}
+        restart: always
+
+      search-service:
+        image: ${data.aws_caller_identity.current.account_id}.dkr.ecr.us-east-1.amazonaws.com/rentlora-${var.environment}-search-service:latest
+        environment:
+          - ENV=${var.environment}
+          - DATABASE_URL=${module.database.db_endpoint}
+          - AWS_DEFAULT_REGION=us-east-1
         restart: always
     COMPOSE
 

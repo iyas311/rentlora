@@ -1,7 +1,7 @@
 version: "3.9"
 services:
   postgres:
-    image: postgres:16
+    image: pgvector/pgvector:pg16
     environment:
       POSTGRES_DB: rentlora
       POSTGRES_PASSWORD: password
@@ -61,6 +61,17 @@ services:
       DATABASE_URL: postgresql+asyncpg://postgres:password@postgres:5432/rentlora
       JWT_SECRET: dev-secret
 
+  search-service:
+    build: ./search-service
+    ports:
+      - "8005:8005"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:password@postgres:5432/rentlora
+      AWS_DEFAULT_REGION: us-east-1
+
   frontend:
     build: ./frontend
     ports:
@@ -70,6 +81,7 @@ services:
       - booking-service
       - ai-service
       - admin-service
+      - search-service
 
 volumes:
   pgdata:
