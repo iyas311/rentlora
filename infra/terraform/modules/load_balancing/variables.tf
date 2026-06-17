@@ -35,5 +35,6 @@ variable "int_alb_sg_id" {
 
 variable "certificate_arn" {
   type        = string
-  description = "ARN of the ACM Certificate for HTTPS"
+  description = "ARN of the ACM Certificate for HTTPS. If null, HTTPS listeners will not be created."
+  default     = null
 }

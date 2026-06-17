@@ -50,6 +50,17 @@ services:
       JWT_SECRET: dev-secret
       AWS_DEFAULT_REGION: us-east-1
 
+  admin-service:
+    build: ./admin-service
+    ports:
+      - "8004:8004"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:password@postgres:5432/rentlora
+      JWT_SECRET: dev-secret
+
   frontend:
     build: ./frontend
     ports:
@@ -58,6 +69,7 @@ services:
       - property-service
       - booking-service
       - ai-service
+      - admin-service
 
 volumes:
   pgdata:

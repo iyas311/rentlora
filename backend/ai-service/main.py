@@ -6,8 +6,12 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from config import get_settings
 from auth import get_current_user
-from schemas import PropertyDescriptionRequest, PropertyDescriptionResponse
-from ai_description import generate_property_description
+from schemas import (
+    PropertyDescriptionRequest, PropertyDescriptionResponse,
+    EmbedRequest, EmbedResponse,
+    RagRequest, RagResponse
+)
+from ai_bedrock import generate_property_description, generate_embedding, generate_rag_response
 
 settings = get_settings()
 logging.basicConfig(level=logging.INFO)
@@ -46,3 +50,16 @@ async def generate_description(payload: PropertyDescriptionRequest, user=Depends
     if user["role"] not in ("host", "admin"):
         raise HTTPException(status_code=403, detail="Host or admin role required")
     return PropertyDescriptionResponse(description=generate_property_description(payload))
+
+
+@app.post("/api/ai/embed", response_model=EmbedResponse)
+async def create_embedding(payload: EmbedRequest, user=Depends(get_current_user)):
+    if user["role"] not in ("host", "admin"):
+        raise HTTPException(status_code=403, detail="Host or admin role required")
+    return EmbedResponse(embedding=generate_embedding(payload.text))
+
+
+@app.post("/api/ai/rag", response_model=RagResponse)
+async def create_rag_summary(payload: RagRequest, user=Depends(get_current_user)):
+    return RagResponse(summary=generate_rag_response(payload.query, payload.properties))
+

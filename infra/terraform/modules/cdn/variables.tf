@@ -10,7 +10,8 @@ variable "environment" {
 
 variable "domain_name" {
   type        = string
-  description = "The root domain name (e.g., rentlora.in)"
+  description = "The root domain name (e.g., rentlora.in). If null, CloudFront will use its default domain."
+  default     = null
 }
 
 variable "alb_domain_name" {
@@ -20,5 +21,6 @@ variable "alb_domain_name" {
 
 variable "certificate_arn" {
   type        = string
-  description = "The ARN of the ACM certificate in us-east-1"
+  description = "The ARN of the ACM certificate in us-east-1. If null, CloudFront will use its default certificate."
+  default     = null
 }

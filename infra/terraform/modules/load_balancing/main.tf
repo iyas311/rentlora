@@ -31,17 +31,29 @@ resource "aws_lb_listener" "external_http" {
   port              = 80
   protocol          = "HTTP"
 
-  default_action {
-    type = "redirect"
-    redirect {
-      port        = "443"
-      protocol    = "HTTPS"
-      status_code = "HTTP_301"
+  dynamic "default_action" {
+    for_each = var.certificate_arn != null ? [1] : []
+    content {
+      type = "redirect"
+      redirect {
+        port        = "443"
+        protocol    = "HTTPS"
+        status_code = "HTTP_301"
+      }
+    }
+  }
+
+  dynamic "default_action" {
+    for_each = var.certificate_arn == null ? [1] : []
+    content {
+      type             = "forward"
+      target_group_arn = aws_lb_target_group.frontend.arn
     }
   }
 }
 
 resource "aws_lb_listener" "external_https" {
+  count             = var.certificate_arn != null ? 1 : 0
   load_balancer_arn = aws_lb.external.arn
   port              = 443
   protocol          = "HTTPS"
@@ -172,6 +184,37 @@ resource "aws_lb_listener_rule" "route_ai" {
   condition {
     path_pattern {
       values = ["/api/ai*"]
+    }
+  }
+}
+
+resource "aws_lb_target_group" "backend_admin" {
+  name     = "${var.project_name}-admin-tg"
+  port     = 8004
+  protocol = "HTTP"
+  vpc_id   = var.vpc_id
+
+  health_check {
+    path                = "/health"
+    healthy_threshold   = 2
+    unhealthy_threshold = 5
+    timeout             = 5
+    interval            = 10
+  }
+}
+
+resource "aws_lb_listener_rule" "route_admin" {
+  listener_arn = aws_lb_listener.internal_http.arn
+  priority     = 40
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.backend_admin.arn
+  }
+
+  condition {
+    path_pattern {
+      values = ["/api/admin*"]
     }
   }
 }

@@ -12,7 +12,8 @@ export default defineConfig({
       "/api/ai": "http://localhost:8003",
       "/api/auth": "http://localhost:8002",
       "/api/users": "http://localhost:8002",
-      "/api/bookings": "http://localhost:8002"
+      "/api/bookings": "http://localhost:8002",
+      "/api/admin": "http://localhost:8004"
     }
   }
 });

@@ -7,3 +7,9 @@ output "db_name" {
   value       = aws_db_instance.postgres.db_name
   description = "The name of the database"
 }
+
+output "db_instance_id" {
+  value       = aws_db_instance.postgres.identifier
+  description = "The RDS instance identifier (for CloudWatch metrics)"
+}
+

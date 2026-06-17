@@ -1,19 +1,63 @@
 from datetime import date
 from math import ceil
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, BackgroundTasks
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+import asyncio
+import httpx
 
 import logging
 from auth import get_current_user
-from database import get_db
-from storage import upload_property_image
+from database import get_db, async_session_maker
+from storage import generate_presigned_upload, upload_property_image_local
 from models import Booking, Property, Review, User
 from schemas import PropertyCreate, PropertyUpdate
+from config import get_settings
 
 logger = logging.getLogger("property-service.routes.properties")
 router = APIRouter(prefix="/properties", tags=["properties"])
+settings = get_settings()
+
+
+async def _generate_property_embedding(property_id: int, token: str):
+    """Background task to fetch embedding from AI service and save to DB."""
+    try:
+        async with async_session_maker() as db:
+            prop = await db.scalar(select(Property).where(Property.id == property_id))
+            if not prop:
+                return
+                
+            # Construct the rich context string
+            amenities_str = ", ".join(prop.amenities) if prop.amenities else "No special amenities"
+            text_to_embed = f"Title: {prop.title}\n" \
+                            f"Property Type: {prop.property_type}\n" \
+                            f"Location: {prop.city}, {prop.country} ({prop.location or ''})\n" \
+                            f"Price: ${prop.price_per_night} per night\n" \
+                            f"Capacity: Up to {prop.max_guests} guests, {prop.bedrooms} bedrooms, {prop.bathrooms} bathrooms.\n" \
+                            f"Amenities: {amenities_str}\n" \
+                            f"Description: {prop.description or ''}"
+                            
+            # Call ai-service
+            url = f"{settings.internal_api_url}/api/ai/embed"
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(
+                    url,
+                    json={"text": text_to_embed},
+                    headers={"Authorization": f"Bearer {token}"},
+                    timeout=10.0
+                )
+                if resp.status_code == 200:
+                    embedding = resp.json().get("embedding")
+                    if embedding:
+                        prop.embedding = embedding
+                        db.add(prop)
+                        await db.commit()
+                        logger.info(f"Successfully generated and saved embedding for property {property_id}")
+                else:
+                    logger.error(f"Failed to fetch embedding for property {property_id}: {resp.text}")
+    except Exception as e:
+        logger.error(f"Error in background embedding generation for property {property_id}: {e}")
 
 
 def _first_image(images):
@@ -133,7 +177,12 @@ async def get_property(property_id: int, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("")
-async def create_property(payload: PropertyCreate, db: AsyncSession = Depends(get_db), user=Depends(get_current_user)):
+async def create_property(
+    payload: PropertyCreate, 
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db), 
+    user=Depends(get_current_user)
+):
     if user["role"] not in ("host", "admin"):
         raise HTTPException(status_code=403, detail="Host or admin role required")
     prop = Property(host_id=user["id"], **payload.model_dump())
@@ -141,11 +190,21 @@ async def create_property(payload: PropertyCreate, db: AsyncSession = Depends(ge
     await db.commit()
     await db.refresh(prop)
     logger.info(f"Property {prop.id} created successfully by host {user['id']}")
+    
+    # Schedule embedding generation
+    background_tasks.add_task(_generate_property_embedding, prop.id, user["token"])
+    
     return await get_property(prop.id, db)
 
 
 @router.put("/{property_id}")
-async def update_property(property_id: int, payload: PropertyUpdate, db: AsyncSession = Depends(get_db), user=Depends(get_current_user)):
+async def update_property(
+    property_id: int, 
+    payload: PropertyUpdate, 
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db), 
+    user=Depends(get_current_user)
+):
     prop = await db.scalar(select(Property).where(Property.id == property_id))
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
@@ -156,6 +215,10 @@ async def update_property(property_id: int, payload: PropertyUpdate, db: AsyncSe
     db.add(prop)
     await db.commit()
     await db.refresh(prop)
+    
+    # Schedule embedding generation (details might have changed)
+    background_tasks.add_task(_generate_property_embedding, prop.id, user["token"])
+    
     return await get_property(prop.id, db)
 
 
@@ -173,6 +236,45 @@ async def delete_property(property_id: int, db: AsyncSession = Depends(get_db), 
     return {"message": "Property removed"}
 
 
+@router.post("/{property_id}/presigned-upload")
+async def presigned_upload(
+    property_id: int,
+    filename: str = Query(..., description="Original filename"),
+    content_type: str = Query(..., description="MIME type e.g. image/jpeg"),
+    db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    """Generate a presigned S3 URL for the browser to upload directly (production)."""
+    prop = await db.scalar(select(Property).where(Property.id == property_id))
+    if not prop:
+        raise HTTPException(status_code=404, detail="Property not found")
+    if prop.host_id != user["id"] and user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Only property host can upload images")
+    return generate_presigned_upload(property_id, filename, content_type)
+
+
+@router.post("/{property_id}/confirm-upload")
+async def confirm_upload(
+    property_id: int,
+    cdn_url: str = Query(..., description="The CDN original URL to save"),
+    db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    """Register an uploaded image URL in the database after browser→S3 upload completes."""
+    prop = await db.scalar(select(Property).where(Property.id == property_id))
+    if not prop:
+        raise HTTPException(status_code=404, detail="Property not found")
+    if prop.host_id != user["id"] and user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Only property host can upload images")
+    existing = list(prop.images or [])
+    existing.append(cdn_url)
+    prop.images = existing
+    db.add(prop)
+    await db.commit()
+    logger.info(f"Confirmed image upload for property {property_id}: {cdn_url}")
+    return {"images": prop.images}
+
+
 @router.post("/{property_id}/images")
 async def upload_images(
     property_id: int,
@@ -180,6 +282,7 @@ async def upload_images(
     db: AsyncSession = Depends(get_db),
     user=Depends(get_current_user),
 ):
+    """Local dev upload — receives files through EC2 and saves to disk."""
     prop = await db.scalar(select(Property).where(Property.id == property_id))
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
@@ -189,12 +292,13 @@ async def upload_images(
         raise HTTPException(status_code=400, detail="Max 5 files allowed")
     existing = list(prop.images or [])
     for f in files:
-        existing.append(await upload_property_image(property_id, f))
+        existing.append(await upload_property_image_local(property_id, f))
     prop.images = existing
     db.add(prop)
     await db.commit()
     logger.info(f"Successfully added {len(files)} images to property {property_id}")
     return {"images": prop.images}
+
 
 
 @router.get("/{property_id}/availability")

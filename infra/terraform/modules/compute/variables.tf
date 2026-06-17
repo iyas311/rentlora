@@ -63,6 +63,11 @@ variable "backend_ai_tg_arn" {
   description = "Target Group ARN for Backend AI"
 }
 
+variable "backend_admin_tg_arn" {
+  type        = string
+  description = "Target Group ARN for Backend Admin"
+}
+
 variable "int_alb_dns" {
   type        = string
   description = "DNS name of the internal ALB for NGINX config"
