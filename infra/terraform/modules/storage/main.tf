@@ -154,12 +154,7 @@ resource "aws_s3_bucket_cors_configuration" "images" {
 # LAMBDA — Auto-resize images on S3 upload
 # =============================================================
 
-# Package the Lambda function code
-data "archive_file" "resize_lambda" {
-  type        = "zip"
-  source_file = "${path.module}/lambda/resize.py"
-  output_path = "${path.module}/lambda/resize.zip"
-}
+# We will use a pre-zipped file instead of the hashicorp/archive provider
 
 # IAM role for Lambda
 resource "aws_iam_role" "resize_lambda" {
@@ -213,8 +208,8 @@ resource "aws_lambda_function" "resize" {
   runtime          = "python3.11"
   timeout          = 60
   memory_size      = 512
-  filename         = data.archive_file.resize_lambda.output_path
-  source_code_hash = data.archive_file.resize_lambda.output_base64sha256
+  filename         = "${path.module}/lambda/resize.zip"
+  source_code_hash = filebase64sha256("${path.module}/lambda/resize.zip")
 
   layers = [
     # Klayers — community-maintained Lambda layer for Pillow on Python 3.11
