@@ -23,10 +23,6 @@ resource "aws_db_instance" "postgres" {
   publicly_accessible    = false
   multi_az               = false
 
-  lifecycle {
-    prevent_destroy = true
-  }
-
   tags = {
     Name = "${var.project_name}-db"
   }
