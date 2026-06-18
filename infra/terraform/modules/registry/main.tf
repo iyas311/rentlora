@@ -17,6 +17,7 @@ resource "aws_ecr_repository" "repos" {
   # Example: rentlora-dev-frontend
   name                 = "${var.project_name}-${var.environment}-${each.key}"
   image_tag_mutability = "MUTABLE"
+  force_delete         = true
 
   # Automatically scan images for vulnerabilities when pushed (Great for security!)
   image_scanning_configuration {

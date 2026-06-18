@@ -1,8 +1,12 @@
 
 # --- S3 BUCKET FOR IMAGES ---
 resource "aws_s3_bucket" "images" {
-  bucket = "${var.project_name}-${var.environment}-property-images"
+  bucket        = "${var.project_name}-${var.environment}-property-images"
+  force_destroy = true
 
+  lifecycle {
+    prevent_destroy = false
+  }
   tags = {
     Name        = "${var.project_name}-property-images"
     Environment = var.environment
