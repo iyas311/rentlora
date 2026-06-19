@@ -11,8 +11,8 @@ from schemas import PropertyDescriptionRequest
 
 logger = logging.getLogger("ai-service.bedrock")
 
-# We will use Amazon Nova Micro for descriptions and RAG summaries
-NOVA_MODEL_ID = "amazon.nova-micro-v1:0"
+# We will use Amazon Nova Lite for descriptions and RAG summaries
+NOVA_MODEL_ID = "amazon.nova-lite-v1:0"
 # We will use Amazon Titan Text Embeddings V2 for vector embeddings
 EMBEDDING_MODEL_ID = "amazon.titan-embed-text-v2:0"
 

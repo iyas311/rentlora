@@ -10,8 +10,10 @@ class PropertyResponse(BaseModel):
     id: int
     title: str
     city: str
+    country: str
     price_per_night: float
     description: Optional[str]
+    first_image: Optional[str]
 
 class SearchResponse(BaseModel):
     summary: str

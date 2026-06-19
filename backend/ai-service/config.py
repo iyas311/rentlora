@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     xai_api_key: str | None = None
     xai_model: str = "grok-4.3"
     xai_timeout_seconds: float = 30.0
+    aws_default_region: str = "us-east-1"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

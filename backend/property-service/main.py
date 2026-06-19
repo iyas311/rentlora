@@ -72,6 +72,7 @@ async def startup():
     for attempt in range(5):
         try:
             async with engine.begin() as conn:
+                await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
                 await conn.run_sync(Base.metadata.create_all)
                 await conn.execute(text("SELECT 1"))
             break

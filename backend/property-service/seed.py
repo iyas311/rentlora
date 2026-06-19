@@ -19,7 +19,17 @@ IMAGES = [
     ["https://images.unsplash.com/photo-1582268611958-ebfd161ef9cf?auto=format&fit=crop&w=800&q=80"], # Desert Oasis
     ["https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=800&q=80"], # Mountain Lodge
     ["https://images.unsplash.com/photo-1507089947368-19c1da9775ae?auto=format&fit=crop&w=800&q=80"], # Nordic Lakehouse
-    ["https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=800&q=80"]  # Historic Cottage
+    ["https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=800&q=80"],  # Historic Cottage
+    ["https://images.unsplash.com/photo-1503899036084-c55cdd92da26?auto=format&fit=crop&w=800&q=80"],  # Tokyo Loft
+    ["https://images.unsplash.com/photo-1439066615861-d1af74d74000?auto=format&fit=crop&w=800&q=80"],  # Bora Bora
+    ["https://images.unsplash.com/photo-1539650116574-8efeb43e2750?auto=format&fit=crop&w=800&q=80"],  # Marrakech Riad
+    ["https://images.unsplash.com/photo-1517760444937-f6397edcbbcd?auto=format&fit=crop&w=800&q=80"],  # Arctic Igloo
+    ["https://images.unsplash.com/photo-1533105079780-92b9be482077?auto=format&fit=crop&w=800&q=80"],  # Santorini
+    ["https://images.unsplash.com/photo-1506377247377-2a5b3b417ebb?auto=format&fit=crop&w=800&q=80"],  # Edinburgh Castle
+    ["https://images.unsplash.com/photo-1546548970-71785318a17b?auto=format&fit=crop&w=800&q=80"],  # Quepos Treehouse
+    ["https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=800&q=80"],  # Amsterdam Houseboat
+    ["https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?auto=format&fit=crop&w=800&q=80"],  # Patagonia Glamping
+    ["https://images.unsplash.com/photo-1449034446853-66c86144b0ad?auto=format&fit=crop&w=800&q=80"]   # Redwood Forest
 ]
 
 PROPERTIES = [
@@ -151,7 +161,7 @@ PROPERTIES = [
     },
     {
         "title": "English Country Rose Cottage",
-        "description": "A fairytale thatched-roof cottage in the heart of the Cotswolds. Walk along cobblestone pathways, enjoy tea in the beautiful private rose garden, and warm up by the historic stone hearth.",
+        "description": "A fairytale thatched-roof cottage in the heart of the Cotswolds. Walk along cobblestone pathways, enjoy tea in the private rose garden, and warm up by the historic stone hearth.",
         "location": "Rosebud Cottage Path",
         "city": "Cotswolds",
         "country": "United Kingdom",
@@ -162,6 +172,146 @@ PROPERTIES = [
         "property_type": "house",
         "amenities": ["Garden", "Fireplace", "Wifi", "Bath Tub", "Historical Details", "Kitchen"],
         "images": IMAGES[9]
+    },
+    {
+        "title": "Modern Neon-View Tokyo Loft",
+        "description": "Experience Tokyo's energy from this sleek, modern loft. Floor-to-ceiling windows look out onto the sparkling city lights. Features high-tech amenities, minimalist styling, and steps away from Shibuya crossing.",
+        "location": "Shibuya Udagawacho 3-1",
+        "city": "Tokyo",
+        "country": "Japan",
+        "price_per_night": Decimal("240.00"),
+        "max_guests": 2,
+        "bedrooms": 1,
+        "bathrooms": 1,
+        "property_type": "apartment",
+        "amenities": ["City View", "High-Tech Toilet", "Wifi", "Pocket Wifi", "Air Conditioning", "Kitchen"],
+        "images": IMAGES[10]
+    },
+    {
+        "title": "Sunset Overwater Ocean Bungalow",
+        "description": "Sleep directly over the turquoise lagoon. Wake up to fish swimming beneath your glass floor panel, take a morning plunge off your private deck, and enjoy gorgeous private sunsets.",
+        "location": "Lagoon View Row 12",
+        "city": "Bora Bora",
+        "country": "French Polynesia",
+        "price_per_night": Decimal("650.00"),
+        "max_guests": 2,
+        "bedrooms": 1,
+        "bathrooms": 1,
+        "property_type": "villa",
+        "amenities": ["Ocean Access", "Glass Floor", "Private Deck", "Wifi", "Room Service", "Kayaks"],
+        "images": IMAGES[11]
+    },
+    {
+        "title": "Traditional Moroccan Riad Oasis",
+        "description": "Escape to this beautiful traditional riad with a tranquil central pool and courtyard. Adorned with handmade zellige tiles, lanterns, and a rooftop terrace overlooking the Atlas Mountains.",
+        "location": "Derb El Cadi 14",
+        "city": "Marrakech",
+        "country": "Morocco",
+        "price_per_night": Decimal("150.00"),
+        "max_guests": 6,
+        "bedrooms": 3,
+        "bathrooms": 3,
+        "property_type": "house",
+        "amenities": ["Plunge Pool", "Courtyard", "Rooftop Terrace", "Breakfast Included", "Air Conditioning", "Wifi"],
+        "images": IMAGES[12]
+    },
+    {
+        "title": "Arctic Glass Igloo Dome",
+        "description": "Watch the mesmerizing Northern Lights dance across the sky directly from your warm bed. This insulated luxury glass igloo sits nestled in a snowy forest, perfect for winter magic.",
+        "location": "Snowy Lane 8",
+        "city": "Rovaniemi",
+        "country": "Finland",
+        "price_per_night": Decimal("380.00"),
+        "max_guests": 2,
+        "bedrooms": 1,
+        "bathrooms": 1,
+        "property_type": "studio",
+        "amenities": ["Glass Roof", "Northern Lights View", "Sauna", "Floor Heating", "Wifi", "Fire Pit"],
+        "images": IMAGES[13]
+    },
+    {
+        "title": "Santorini Clifftop Sanctuary",
+        "description": "Enjoy the iconic blue domes and caldera views from this classic cave villa. Features a private heated jacuzzi, white-washed walls, and a stunning private sunset terrace.",
+        "location": "Oia Caldera Edge",
+        "city": "Santorini",
+        "country": "Greece",
+        "price_per_night": Decimal("480.00"),
+        "max_guests": 4,
+        "bedrooms": 2,
+        "bathrooms": 2,
+        "property_type": "villa",
+        "amenities": ["Caldera View", "Heated Jacuzzi", "Balcony", "Air Conditioning", "Wifi", "Daily Maid"],
+        "images": IMAGES[14]
+    },
+    {
+        "title": "Historic Edinburgh Castle Suite",
+        "description": "Live like royalty in this spacious apartment featuring historic stone walls, large sash windows, a fireplace, and views of Edinburgh Castle. Decorated with antique furnishings.",
+        "location": "Royal Mile 109",
+        "city": "Edinburgh",
+        "country": "United Kingdom",
+        "price_per_night": Decimal("210.00"),
+        "max_guests": 4,
+        "bedrooms": 2,
+        "bathrooms": 2,
+        "property_type": "apartment",
+        "amenities": ["Castle View", "Fireplace", "Wifi", "Kitchen", "Washing Machine", "Historic Decor"],
+        "images": IMAGES[15]
+    },
+    {
+        "title": "Rainforest Canopy Treehouse Sanctuary",
+        "description": "Stay in the jungle treetops with monkeys, sloths, and toucans as your neighbors. This luxurious wooden treehouse offers a private balcony, jungle view shower, and shared pool access.",
+        "location": "Jungle Edge Reserve",
+        "city": "Quepos",
+        "country": "Costa Rica",
+        "price_per_night": Decimal("175.00"),
+        "max_guests": 3,
+        "bedrooms": 2,
+        "bathrooms": 1,
+        "property_type": "house",
+        "amenities": ["Jungle View", "Balcony", "Wildlife Watching", "Pool Access", "Wifi", "Outdoor Hammock"],
+        "images": IMAGES[16]
+    },
+    {
+        "title": "Charming Floating Canal Houseboat",
+        "description": "Live like a local in a modern, fully equipped houseboat on Amsterdam's central canals. Cozy and bright, with a private water terrace perfect for feeding ducks and enjoying coffee.",
+        "location": "Prinsengracht Dock 22",
+        "city": "Amsterdam",
+        "country": "Netherlands",
+        "price_per_night": Decimal("195.00"),
+        "max_guests": 2,
+        "bedrooms": 1,
+        "bathrooms": 1,
+        "property_type": "house",
+        "amenities": ["Water Terrace", "Canal View", "Kitchen", "Wifi", "Bicycles", "Coffee Maker"],
+        "images": IMAGES[17]
+    },
+    {
+        "title": "Patagonian Expedition Glamping Dome",
+        "description": "Glamping at its finest under the shadow of the spectacular Fitz Roy peaks. Settle into this cozy, geodetic dome with wood-pellet heating, mountain views, and local hiking trail access.",
+        "location": "Trailhead Basecamp",
+        "city": "El Chalten",
+        "country": "Argentina",
+        "price_per_night": Decimal("130.00"),
+        "max_guests": 2,
+        "bedrooms": 1,
+        "bathrooms": 1,
+        "property_type": "studio",
+        "amenities": ["Mountain View", "Pellet Heater", "Hot Shower", "Breakfast Included", "Trail Access"],
+        "images": IMAGES[18]
+    },
+    {
+        "title": "Redwood Forest Treehouse Cabin",
+        "description": "Soak in a private hot tub under giant 200-foot redwood trees. This cozy, secluded cabin offers a wrap-around deck, modern amenities, a loft bed, and absolute natural silence.",
+        "location": "Canyon Redwood Road",
+        "city": "Santa Cruz",
+        "country": "United States",
+        "price_per_night": Decimal("260.00"),
+        "max_guests": 4,
+        "bedrooms": 2,
+        "bathrooms": 1,
+        "property_type": "house",
+        "amenities": ["Hot Tub", "Redwood View", "Wifi", "Deck", "BBQ Grill", "Kitchen"],
+        "images": IMAGES[19]
     }
 ]
 

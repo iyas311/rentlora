@@ -5,6 +5,8 @@ from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, ForeignKey, Int
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
+from pgvector.sqlalchemy import Vector
+
 from database import Base
 
 
@@ -54,5 +56,6 @@ class Property(Base):
     amenities: Mapped[list] = mapped_column(JSONB, default=list)
     images: Mapped[list] = mapped_column(JSONB, default=list)
     is_available: Mapped[bool] = mapped_column(Boolean, default=True)
+    embedding = mapped_column(Vector(1024))
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())

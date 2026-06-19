@@ -4,7 +4,7 @@ from sqlalchemy import select
 from database import get_db
 from models import Property
 from schemas import SearchRequest, SearchResponse
-from embeddings import generate_embedding, generate_property_summary
+from embeddings import generate_embedding, generate_property_summary_and_ranking
 
 router = APIRouter()
 
@@ -40,8 +40,17 @@ async def ai_search(request: SearchRequest, db: AsyncSession = Depends(get_db)):
             )
         context_str = "\n".join(context_lines)
         
-        # 4. Generate conversational summary
-        summary = generate_property_summary(request.query, context_str)
+        # 4. Generate conversational summary and filter relevant properties
+        ai_data = generate_property_summary_and_ranking(request.query, context_str)
+        summary = ai_data["summary"]
+        relevant_titles = ai_data["relevant_titles"]
+
+        if relevant_titles is not None:
+            relevant_titles_lower = [t.lower().strip() for t in relevant_titles]
+            top_properties = [
+                p for p in top_properties
+                if any(t in p.title.lower() or p.title.lower() in t for t in relevant_titles_lower)
+            ]
         
         # 5. Return JSON
         props_out = [
@@ -49,8 +58,10 @@ async def ai_search(request: SearchRequest, db: AsyncSession = Depends(get_db)):
                 "id": p.id,
                 "title": p.title,
                 "city": p.city,
+                "country": p.country,
                 "price_per_night": float(p.price_per_night),
-                "description": p.description
+                "description": p.description,
+                "first_image": p.images[0] if isinstance(p.images, list) and p.images else None
             }
             for p in top_properties
         ]

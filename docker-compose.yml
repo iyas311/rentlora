@@ -17,7 +17,7 @@ services:
       - pgdata:/var/lib/postgresql/data
 
   property-service:
-    build: ./property-service
+    build: ./backend/property-service
     ports:
       - "8001:8001"
     depends_on:
@@ -27,19 +27,26 @@ services:
       DATABASE_URL: postgresql+asyncpg://postgres:password@postgres:5432/rentlora
       JWT_SECRET: dev-secret
       S3_BUCKET_NAME: rentlora-assets
-      AWS_DEFAULT_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN}
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-us-east-1}
 
   ai-service:
-    build: ./ai-service
+    build: ./backend/ai-service
     ports:
       - "8003:8003"
     environment:
       JWT_SECRET: dev-secret
       XAI_API_KEY: ${XAI_API_KEY:-xai-I0gPIz79srCEQ0AHDf0FnEKI6yWcE0u4wueW7GY7AZeqG9wKakWH7hx4sz8BTL3XT7dL2yhEo8ld85rP}
       XAI_MODEL: ${XAI_MODEL:-grok-4.3}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN}
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-us-east-1}
 
   booking-service:
-    build: ./booking-service
+    build: ./backend/booking-service
     ports:
       - "8002:8002"
     depends_on:
@@ -48,10 +55,13 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:password@postgres:5432/rentlora
       JWT_SECRET: dev-secret
-      AWS_DEFAULT_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN}
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-us-east-1}
 
   admin-service:
-    build: ./admin-service
+    build: ./backend/admin-service
     ports:
       - "8004:8004"
     depends_on:
@@ -62,7 +72,7 @@ services:
       JWT_SECRET: dev-secret
 
   search-service:
-    build: ./search-service
+    build: ./backend/search-service
     ports:
       - "8005:8005"
     depends_on:
@@ -70,12 +80,15 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:password@postgres:5432/rentlora
-      AWS_DEFAULT_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN}
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-us-east-1}
 
   frontend:
     build: ./frontend
     ports:
-      - "80:80"
+      - "8080:80"
     depends_on:
       - property-service
       - booking-service
