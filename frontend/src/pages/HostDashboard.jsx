@@ -7,6 +7,7 @@ import { useAuth } from "../hooks/useAuth";
 import { formatCurrency } from "../utils/priceUtils";
 import { FiHome, FiCalendar, FiDollarSign, FiPlus, FiTrash2, FiMapPin, FiUser, FiActivity, FiArrowRight } from "react-icons/fi";
 import { useState } from "react";
+import { TableSkeleton } from "../components/ui/Skeleton";
 
 export default function HostDashboard() {
   const qc = useQueryClient();
@@ -174,7 +175,7 @@ export default function HostDashboard() {
 
           <div className="p-6">
             {isPropertiesLoading ? (
-              <div className="text-center py-8 text-slate-400">Loading portfolio properties...</div>
+              <TableSkeleton rows={3} />
             ) : properties?.items && properties.items.length > 0 ? (
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
@@ -262,7 +263,7 @@ export default function HostDashboard() {
 
           <div className="p-6">
             {isBookingsLoading ? (
-              <div className="text-center py-8 text-slate-400">Loading reservations...</div>
+              <TableSkeleton rows={4} />
             ) : bookings && bookings.length > 0 ? (
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">

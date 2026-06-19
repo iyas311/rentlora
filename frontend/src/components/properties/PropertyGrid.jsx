@@ -1,8 +1,8 @@
 import PropertyCard from "./PropertyCard";
-import Skeleton from "../ui/Skeleton";
+import { CardSkeleton } from "../ui/Skeleton";
 
 export default function PropertyGrid({ data, loading }) {
-  if (loading) return <div className="grid grid-cols-1 gap-4 md:grid-cols-3">{Array.from({ length: 12 }).map((_, i) => <Skeleton key={i} className="h-72" />)}</div>;
+  if (loading) return <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">{Array.from({ length: 6 }).map((_, i) => <CardSkeleton key={i} />)}</div>;
   
   if (!data?.items || data.items.length === 0) {
     return (

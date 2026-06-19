@@ -1,4 +1,4 @@
-import { FiWifi, FiCoffee, FiMonitor, FiWind, FiCheckCircle, FiThermometer, FiSun, FiHome, FiImage, FiFlame, FiGrid } from "react-icons/fi";
+import { FiWifi, FiCoffee, FiMonitor, FiWind, FiCheckCircle, FiThermometer, FiSun, FiHome, FiImage, FiGrid } from "react-icons/fi";
 
 const getAmenityIcon = (name) => {
   const lower = name.toLowerCase();
@@ -9,7 +9,7 @@ const getAmenityIcon = (name) => {
   if (lower.includes("heat")) return <FiThermometer />;
   if (lower.includes("pool") || lower.includes("sun")) return <FiSun />;
   if (lower.includes("window") || lower.includes("view")) return <FiImage />;
-  if (lower.includes("fire")) return <FiFlame />;
+  if (lower.includes("fire")) return <FiThermometer />;
   if (lower.includes("design") || lower.includes("minimalist")) return <FiGrid />;
   return <FiCheckCircle />;
 };
