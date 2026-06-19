@@ -1,0 +1,12 @@
+line-length = 120
+target-version = "py311"
+
+[lint]
+select = ["E", "F", "W", "I"]
+ignore = [
+    # E402: module-level import not at top of file — test files intentionally set
+    # environment variables before importing the app.
+    "E402",
+    # E501: line length is not gated in CI; long log/format lines are left as-is.
+    "E501",
+]

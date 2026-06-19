@@ -1,22 +1,22 @@
 import logging
 import time
-
-from fastapi import FastAPI, Depends, HTTPException, Request
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from typing import Optional
 
-from config import get_settings
+from ai_bedrock import generate_embedding, generate_property_description, generate_rag_response, run_agent_chat
 from auth import get_current_user
+from config import get_settings
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from schemas import (
-    PropertyDescriptionRequest, PropertyDescriptionResponse,
-    EmbedRequest, EmbedResponse,
-    RagRequest, RagResponse,
-    ChatRequest, ChatResponse
-)
-from ai_bedrock import (
-    generate_property_description, generate_embedding, generate_rag_response,
-    run_agent_chat
+    ChatRequest,
+    ChatResponse,
+    EmbedRequest,
+    EmbedResponse,
+    PropertyDescriptionRequest,
+    PropertyDescriptionResponse,
+    RagRequest,
+    RagResponse,
 )
 
 security = HTTPBearer(auto_error=False)
@@ -51,6 +51,18 @@ async def startup():
 @app.get("/health")
 async def health():
     return {"status": "ok", "service": "ai-service"}
+
+
+@app.get("/healthz")
+async def healthz():
+    """Liveness probe — cheap, no dependencies."""
+    return {"status": "ok"}
+
+
+@app.get("/ready")
+async def ready():
+    """Readiness probe — ai-service has no backing store to check."""
+    return {"status": "ready"}
 
 
 @app.post("/api/ai/description", response_model=PropertyDescriptionResponse)

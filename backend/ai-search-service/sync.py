@@ -1,10 +1,10 @@
 import asyncio
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from database import AsyncSessionLocal
-from models import Property
-from embeddings import generate_embedding
 import logging
+
+from database import AsyncSessionLocal
+from embeddings import generate_embedding
+from models import Property
+from sqlalchemy import select
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -30,10 +30,10 @@ async def backfill_embeddings():
                             session.add(prop)
                         except Exception as e:
                             logger.error(f"Failed to embed property {prop.id}: {e}")
-                    
+
                     await session.commit()
                     logger.info("Batch embedded successfully.")
-                
+
                 # Always sleep for a bit to avoid tight CPU spinning and rate limits
                 await asyncio.sleep(10)
         except Exception as e:

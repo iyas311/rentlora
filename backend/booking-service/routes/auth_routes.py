@@ -1,12 +1,18 @@
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from auth import create_access_token, create_refresh_token, decode_token, get_current_user, hash_password, verify_password
+from auth import (
+    create_access_token,
+    create_refresh_token,
+    decode_token,
+    get_current_user,
+    hash_password,
+    verify_password,
+)
 from database import get_db
+from email_utils import send_welcome_email
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from models import User
 from schemas import AuthResponse, LoginRequest, RefreshRequest, RefreshResponse, RegisterRequest, UserOut
-from email_utils import send_welcome_email
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 

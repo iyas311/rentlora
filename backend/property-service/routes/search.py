@@ -1,13 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import distinct, select
-from sqlalchemy.ext.asyncio import AsyncSession
-from pydantic import BaseModel
 import httpx
-
-from database import get_db
-from models import Property
 from auth import get_current_user
 from config import get_settings
+from database import get_db
+from fastapi import APIRouter, Depends, HTTPException, Query
+from models import Property
+from pydantic import BaseModel
+from sqlalchemy import distinct, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(prefix="/search", tags=["search"])
 
@@ -36,17 +35,17 @@ class RagSearchRequest(BaseModel):
 
 @router.post("/rag")
 async def rag_search(
-    payload: RagSearchRequest, 
-    db: AsyncSession = Depends(get_db), 
+    payload: RagSearchRequest,
+    db: AsyncSession = Depends(get_db),
     user=Depends(get_current_user)
 ):
     query = payload.query.strip()
     if not query:
         raise HTTPException(status_code=400, detail="Query cannot be empty")
-        
+
     settings = get_settings()
     token = user["token"]
-    
+
     # 1. Embed the search query using ai-service
     url_embed = f"{settings.internal_api_url}/api/ai/embed"
     async with httpx.AsyncClient() as client:
@@ -59,7 +58,7 @@ async def rag_search(
         if resp_embed.status_code != 200:
             raise HTTPException(status_code=502, detail="Failed to get query embedding from AI service")
         query_embedding = resp_embed.json().get("embedding")
-        
+
     if not query_embedding:
         raise HTTPException(status_code=500, detail="Received empty embedding")
 
@@ -73,10 +72,10 @@ async def rag_search(
         .limit(5)
     )
     results = (await db.scalars(stmt)).all()
-    
+
     if not results:
         return {"summary": "I couldn't find any properties matching your request.", "properties": []}
-        
+
     # Serialize properties for AI summary and response
     props_list = []
     for p in results:
@@ -92,7 +91,7 @@ async def rag_search(
             "description": p.description,
             "images": p.images
         })
-        
+
     # 3. Generate RAG summary using ai-service
     url_rag = f"{settings.internal_api_url}/api/ai/rag"
     async with httpx.AsyncClient() as client:
@@ -107,7 +106,7 @@ async def rag_search(
         else:
             # Fallback if generation fails
             summary = "Here are the best matching properties we found."
-            
+
     return {
         "summary": summary,
         "properties": props_list

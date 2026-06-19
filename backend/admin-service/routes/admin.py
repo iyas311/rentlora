@@ -1,12 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, select
-from sqlalchemy.ext.asyncio import AsyncSession
 from decimal import Decimal
 
 from auth import get_current_user
 from database import get_db
+from fastapi import APIRouter, Depends, HTTPException
 from models import Booking, Property, User
-from schemas import AdminStatsResponse, UserOut, UpdateRoleRequest
+from schemas import AdminStatsResponse, UpdateRoleRequest, UserOut
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -26,7 +26,7 @@ async def get_stats(
     total_users = await db.scalar(select(func.count(User.id)))
     total_properties = await db.scalar(select(func.count(Property.id)))
     total_bookings = await db.scalar(select(func.count(Booking.id)))
-    
+
     # Sum of platform_fee for confirmed/past bookings. Exclude cancelled.
     rev = await db.scalar(
         select(func.sum(Booking.platform_fee))
@@ -51,14 +51,14 @@ async def get_users(
     current_user: User = Depends(get_current_user),
 ):
     _verify_admin(current_user)
-    
+
     stmt = select(User)
     if search:
         stmt = stmt.where(User.email.ilike(f"%{search}%"))
-        
+
     stmt = stmt.order_by(User.created_at.desc()).offset((page - 1) * limit).limit(limit)
     rows = (await db.execute(stmt)).scalars().all()
-    
+
     return [UserOut.model_validate(u) for u in rows]
 
 
@@ -70,16 +70,16 @@ async def update_user_role(
     current_user: User = Depends(get_current_user),
 ):
     _verify_admin(current_user)
-    
+
     user = await db.scalar(select(User).where(User.id == user_id))
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-        
+
     user.role = payload.role
     db.add(user)
     await db.commit()
     await db.refresh(user)
-    
+
     return UserOut.model_validate(user)
 
 
@@ -92,21 +92,21 @@ async def list_all_properties_admin(
     current_user: User = Depends(get_current_user),
 ):
     _verify_admin(current_user)
-    
+
     filters = []
     if search:
         filters.append(Property.title.ilike(f"%{search}%"))
-        
+
     stmt = (
         select(Property, User)
         .join(User, User.id == Property.host_id)
         .where(*filters)
     )
-    
+
     total = await db.scalar(select(func.count()).select_from(stmt.subquery()))
     stmt = stmt.order_by(Property.created_at.desc()).offset((page - 1) * limit).limit(limit)
     rows = (await db.execute(stmt)).all()
-    
+
     items = []
     for p, host in rows:
         items.append({
@@ -118,6 +118,6 @@ async def list_all_properties_admin(
             "host": {"id": host.id, "name": host.name, "email": host.email},
             "created_at": p.created_at
         })
-        
+
     from math import ceil
     return {"items": items, "total": total or 0, "page": page, "pages": ceil((total or 0) / limit)}

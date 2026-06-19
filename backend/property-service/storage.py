@@ -17,11 +17,10 @@ import os
 import uuid
 
 import boto3
-from fastapi import HTTPException, UploadFile
-from PIL import Image
-
 from config import get_settings
+from fastapi import HTTPException, UploadFile
 from metrics import emit_metric
+from PIL import Image
 
 logger = logging.getLogger("property-service.storage")
 settings = get_settings()

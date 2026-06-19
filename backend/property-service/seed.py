@@ -1,12 +1,11 @@
 import asyncio
-import bcrypt
 from decimal import Decimal
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 
+import bcrypt
 from config import get_settings
 from models import Property, User
-from database import Base
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 # Sample real, high-quality Unsplash image URLs
 IMAGES = [
@@ -319,13 +318,13 @@ async def seed():
     settings = get_settings()
     engine = create_async_engine(settings.database_url, pool_pre_ping=True)
     AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
-    
+
     async with AsyncSessionLocal() as session:
         # 1. Ensure a Host user exists
         stmt = select(User).where(User.role.in_(["host", "admin"]))
         result = await session.execute(stmt)
         host = result.scalars().first()
-        
+
         if not host:
             # Create a default host user if none exists
             password_hash = bcrypt.hashpw("password".encode(), bcrypt.gensalt(rounds=12)).decode()
@@ -351,14 +350,14 @@ async def seed():
             if existing:
                 print(f"Skipping: '{p_data['title']}' already exists.")
                 continue
-            
+
             prop = Property(
                 host_id=host.id,
                 **p_data
             )
             session.add(prop)
             print(f"Adding property: '{p_data['title']}'")
-        
+
         await session.commit()
         print("Database seeding completed successfully!")
 

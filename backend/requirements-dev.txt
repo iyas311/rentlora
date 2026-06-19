@@ -1,0 +1,7 @@
+# Shared dev/test dependencies for all backend services.
+# Install alongside a service's requirements.txt in CI:
+#   pip install -r requirements.txt -r ../requirements-dev.txt
+pytest>=8.0
+# <0.28 keeps the FastAPI TestClient's `app=` shortcut working across versions.
+httpx>=0.27,<0.28
+ruff>=0.5

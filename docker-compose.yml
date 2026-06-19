@@ -38,8 +38,6 @@ services:
       - "8003:8003"
     environment:
       JWT_SECRET: dev-secret
-      XAI_API_KEY: ${XAI_API_KEY:-xai-I0gPIz79srCEQ0AHDf0FnEKI6yWcE0u4wueW7GY7AZeqG9wKakWH7hx4sz8BTL3XT7dL2yhEo8ld85rP}
-      XAI_MODEL: ${XAI_MODEL:-grok-4.3}
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
       AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN}
@@ -88,7 +86,9 @@ services:
   frontend:
     build: ./frontend
     ports:
-      - "8080:80"
+      - "8080:8080"
+    environment:
+      FRONTEND_MODE: local
     depends_on:
       - property-service
       - booking-service

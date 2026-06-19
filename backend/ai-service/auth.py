@@ -1,10 +1,9 @@
 from typing import Optional
 
 import jwt
+from config import get_settings
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-
-from config import get_settings
 
 settings = get_settings()
 security = HTTPBearer(auto_error=False)

@@ -1,5 +1,6 @@
-import boto3
 import json
+
+import boto3
 from config import settings
 
 bedrock = boto3.client("bedrock-runtime", region_name=settings.AWS_DEFAULT_REGION)
@@ -7,7 +8,7 @@ bedrock = boto3.client("bedrock-runtime", region_name=settings.AWS_DEFAULT_REGIO
 def generate_embedding(text: str) -> list[float]:
     """Generates a 1024-dimensional embedding using Amazon Titan."""
     response = bedrock.invoke_model(
-        modelId="amazon.titan-embed-text-v2:0",
+        modelId=settings.EMBEDDING_MODEL_ID,
         body=json.dumps({"inputText": text}),
         contentType="application/json",
         accept="application/json"
@@ -37,9 +38,9 @@ def generate_property_summary_and_ranking(query: str, context: str) -> dict:
 
     Return ONLY the valid JSON object. Do not include any other text, markdown formatting (like ```json), or wrapping.
     """
-    
+
     response = bedrock.invoke_model(
-        modelId="amazon.nova-lite-v1:0",
+        modelId=settings.NOVA_MODEL_ID,
         body=json.dumps({
             "messages": [{"role": "user", "content": [{"text": prompt}]}],
             "inferenceConfig": {"maxTokens": 400, "temperature": 0.3}
@@ -49,7 +50,7 @@ def generate_property_summary_and_ranking(query: str, context: str) -> dict:
     )
     result = json.loads(response["body"].read())
     text_output = result.get("output", {}).get("message", {}).get("content", [{"text": "{}"}])[0].get("text", "").strip()
-    
+
     # Strip markdown code blocks if present
     if text_output.startswith("```json"):
         text_output = text_output[7:]
@@ -58,7 +59,7 @@ def generate_property_summary_and_ranking(query: str, context: str) -> dict:
     if text_output.endswith("```"):
         text_output = text_output[:-3]
     text_output = text_output.strip()
-    
+
     try:
         data = json.loads(text_output)
         return {

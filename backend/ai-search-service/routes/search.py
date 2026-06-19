@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 from database import get_db
+from embeddings import generate_embedding, generate_property_summary_and_ranking
+from fastapi import APIRouter, Depends, HTTPException
 from models import Property
 from schemas import SearchRequest, SearchResponse
-from embeddings import generate_embedding, generate_property_summary_and_ranking
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter()
 
@@ -13,25 +13,25 @@ async def ai_search(request: SearchRequest, db: AsyncSession = Depends(get_db)):
     try:
         # 1. Generate embedding for user's query
         query_embedding = generate_embedding(request.query)
-        
+
         # 2. Vector search in PostgreSQL using pgvector's <-> operator (L2 distance)
         # We only search properties that have embeddings and are available
         stmt = (
             select(Property)
-            .where(Property.is_available == True)
+            .where(Property.is_available.is_(True))
             .where(Property.embedding.is_not(None))
             .order_by(Property.embedding.l2_distance(query_embedding))
             .limit(request.limit)
         )
         result = await db.execute(stmt)
         top_properties = result.scalars().all()
-        
+
         if not top_properties:
             return SearchResponse(
                 summary="I couldn't find any properties matching your request.",
                 properties=[]
             )
-            
+
         # 3. Build context for Nova
         context_lines = []
         for p in top_properties:
@@ -39,7 +39,7 @@ async def ai_search(request: SearchRequest, db: AsyncSession = Depends(get_db)):
                 f"- {p.title} in {p.city} (${p.price_per_night}/night): {p.description or ''}"
             )
         context_str = "\n".join(context_lines)
-        
+
         # 4. Generate conversational summary and filter relevant properties
         ai_data = generate_property_summary_and_ranking(request.query, context_str)
         summary = ai_data["summary"]
@@ -51,7 +51,7 @@ async def ai_search(request: SearchRequest, db: AsyncSession = Depends(get_db)):
                 p for p in top_properties
                 if any(t in p.title.lower() or p.title.lower() in t for t in relevant_titles_lower)
             ]
-        
+
         # 5. Return JSON
         props_out = [
             {
@@ -65,9 +65,9 @@ async def ai_search(request: SearchRequest, db: AsyncSession = Depends(get_db)):
             }
             for p in top_properties
         ]
-        
+
         return SearchResponse(summary=summary, properties=props_out)
-        
+
     except Exception as e:
         import traceback
         traceback.print_exc()

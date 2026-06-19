@@ -1,6 +1,7 @@
-import os
-import boto3
 import logging
+import os
+
+import boto3
 from config import get_settings
 
 logger = logging.getLogger("booking-service.notifications")
@@ -21,7 +22,7 @@ def send_booking_email(user_email: str, user_name: str, property_title: str, che
     if not ses:
         logger.info(f"[DEV MODE] Would send email to {user_email} for booking {property_title}")
         return
-        
+
     try:
         html_body = f"""
         <html>
@@ -39,7 +40,7 @@ def send_booking_email(user_email: str, user_name: str, property_title: str, che
         </html>
         """
         ses.send_email(
-            Source="no-reply@rentlora.com",
+            Source=settings.ses_sender_email,
             Destination={'ToAddresses': [user_email]},
             Message={
                 'Subject': {'Data': f"Booking Confirmed: {property_title}"},
@@ -55,10 +56,10 @@ def send_host_sms_alert(host_phone: str, property_title: str, check_in):
     if not sns:
         logger.info(f"[DEV MODE] Would send SMS to host {host_phone}: {property_title} was booked!")
         return
-        
+
     if not host_phone:
         return
-        
+
     try:
         message = f"Rentlora Alert: Your property '{property_title}' was just booked for {check_in}!"
         sns.publish(

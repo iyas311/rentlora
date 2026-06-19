@@ -1,9 +1,11 @@
-from sqlalchemy import Integer, String, Numeric, Boolean, Text
+from decimal import Decimal
+
+from database import Base
+from pgvector.sqlalchemy import Vector
+from sqlalchemy import Boolean, Integer, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
-from pgvector.sqlalchemy import Vector
-from database import Base
-from decimal import Decimal
+
 
 class Property(Base):
     __tablename__ = "properties"

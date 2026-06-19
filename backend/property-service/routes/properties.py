@@ -1,19 +1,19 @@
+import asyncio
+import logging
 from datetime import date
 from math import ceil
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, BackgroundTasks
-from sqlalchemy import and_, func, or_, select
-from sqlalchemy.ext.asyncio import AsyncSession
-import asyncio
 import httpx
-
-import logging
 from auth import get_current_user
-from database import get_db, async_session_maker
-from storage import generate_presigned_upload, upload_property_image_local
+from config import get_settings
+from database import async_session_maker, get_db
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile
+from messaging import publish_property_sync, sqs_health_check
 from models import Booking, Property, Review, User
 from schemas import PropertyCreate, PropertyUpdate
-from config import get_settings
+from sqlalchemy import func, or_, select
+from sqlalchemy.ext.asyncio import AsyncSession
+from storage import generate_presigned_upload, upload_property_image_local
 
 logger = logging.getLogger("property-service.routes.properties")
 router = APIRouter(prefix="/properties", tags=["properties"])
@@ -27,7 +27,7 @@ async def _generate_property_embedding(property_id: int, token: str):
             prop = await db.scalar(select(Property).where(Property.id == property_id))
             if not prop:
                 return
-                
+
             # Construct the rich context string
             amenities_str = ", ".join(prop.amenities) if prop.amenities else "No special amenities"
             text_to_embed = f"Title: {prop.title}\n" \
@@ -37,7 +37,7 @@ async def _generate_property_embedding(property_id: int, token: str):
                             f"Capacity: Up to {prop.max_guests} guests, {prop.bedrooms} bedrooms, {prop.bathrooms} bathrooms.\n" \
                             f"Amenities: {amenities_str}\n" \
                             f"Description: {prop.description or ''}"
-                            
+
             # Call ai-service
             url = f"{settings.internal_api_url}/api/ai/embed"
             async with httpx.AsyncClient() as client:
@@ -58,6 +58,15 @@ async def _generate_property_embedding(property_id: int, token: str):
                     logger.error(f"Failed to fetch embedding for property {property_id}: {resp.text}")
     except Exception as e:
         logger.error(f"Error in background embedding generation for property {property_id}: {e}")
+
+
+async def _dispatch_property_embedding(property_id: int, token: str):
+    """Prefer the event-driven SQS path; fall back to the direct HTTP embedding
+    call when no queue is configured (local/dev)."""
+    published = await asyncio.to_thread(publish_property_sync, property_id, "upsert")
+    if not published:
+        logger.info(f"SQS not configured for property {property_id}; using direct HTTP embedding fallback")
+        await _generate_property_embedding(property_id, token)
 
 
 def _first_image(images):
@@ -139,6 +148,16 @@ async def list_properties(
     return {"items": items, "total": total, "page": page, "pages": ceil(total / limit) if total else 0}
 
 
+@router.get("/cloud-health")
+async def cloud_health():
+    """IRSA verification endpoint.
+
+    Demonstrates that this pod can reach SQS using its ServiceAccount IAM role
+    with no static credentials. Required by the capstone Cloud Integration pillar.
+    """
+    return sqs_health_check()
+
+
 @router.get("/{property_id}")
 async def get_property(property_id: int, db: AsyncSession = Depends(get_db)):
     row = (
@@ -181,9 +200,9 @@ async def get_property(property_id: int, db: AsyncSession = Depends(get_db)):
 
 @router.post("")
 async def create_property(
-    payload: PropertyCreate, 
+    payload: PropertyCreate,
     background_tasks: BackgroundTasks,
-    db: AsyncSession = Depends(get_db), 
+    db: AsyncSession = Depends(get_db),
     user=Depends(get_current_user)
 ):
     if user["role"] not in ("host", "admin"):
@@ -193,19 +212,19 @@ async def create_property(
     await db.commit()
     await db.refresh(prop)
     logger.info(f"Property {prop.id} created successfully by host {user['id']}")
-    
-    # Schedule embedding generation
-    background_tasks.add_task(_generate_property_embedding, prop.id, user["token"])
-    
+
+    # Schedule embedding generation (SQS event, with HTTP fallback)
+    background_tasks.add_task(_dispatch_property_embedding, prop.id, user["token"])
+
     return await get_property(prop.id, db)
 
 
 @router.put("/{property_id}")
 async def update_property(
-    property_id: int, 
-    payload: PropertyUpdate, 
+    property_id: int,
+    payload: PropertyUpdate,
     background_tasks: BackgroundTasks,
-    db: AsyncSession = Depends(get_db), 
+    db: AsyncSession = Depends(get_db),
     user=Depends(get_current_user)
 ):
     prop = await db.scalar(select(Property).where(Property.id == property_id))
@@ -218,10 +237,10 @@ async def update_property(
     db.add(prop)
     await db.commit()
     await db.refresh(prop)
-    
+
     # Schedule embedding generation (details might have changed)
-    background_tasks.add_task(_generate_property_embedding, prop.id, user["token"])
-    
+    background_tasks.add_task(_dispatch_property_embedding, prop.id, user["token"])
+
     return await get_property(prop.id, db)
 
 

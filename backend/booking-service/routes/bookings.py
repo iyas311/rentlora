@@ -1,16 +1,16 @@
+import logging
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
-from sqlalchemy import and_, case, desc, or_, select
-from sqlalchemy.ext.asyncio import AsyncSession
-
-import logging
 from auth import get_current_user
 from database import get_db
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from messaging import publish_booking_event
 from models import Booking, Property, User
-from schemas import BookingCreateRequest
 from notifications import send_booking_email, send_host_sms_alert
+from schemas import BookingCreateRequest
+from sqlalchemy import and_, case, desc, or_, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger("booking-service.routes.bookings")
 router = APIRouter(prefix="/bookings", tags=["bookings"])
@@ -205,12 +205,12 @@ async def create_booking(
     await db.commit()
     await db.refresh(booking)
     logger.info(f"Booking {booking.id} created successfully for property {payload.property_id} by user {current_user.id}")
-    
+
     # Trigger Asynchronous Notifications
     # Fetch host to get phone number (assuming User model has phone field, otherwise gracefully fails in dev mode)
     host = await db.scalar(select(User).where(User.id == prop.host_id))
     host_phone = getattr(host, 'phone', None)
-    
+
     background_tasks.add_task(
         send_booking_email,
         user_email=current_user.email,
@@ -220,7 +220,7 @@ async def create_booking(
         check_out=payload.check_out,
         total_price=total_price
     )
-    
+
     if host_phone:
         background_tasks.add_task(
             send_host_sms_alert,
@@ -228,12 +228,29 @@ async def create_booking(
             property_title=prop.title,
             check_in=payload.check_in
         )
-        
+
+    # Emit a booking-created event to SQS for downstream consumers
+    background_tasks.add_task(
+        publish_booking_event,
+        "created",
+        booking.id,
+        user_email=current_user.email,
+        property_title=prop.title,
+        check_in=payload.check_in,
+        check_out=payload.check_out,
+        total_price=total_price,
+    )
+
     return _booking_detail_payload(booking, current_user, prop)
 
 
 @router.put("/{booking_id}/cancel")
-async def cancel_booking(booking_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+async def cancel_booking(
+    booking_id: int,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     row = (
         await db.execute(
             select(Booking, Property)
@@ -258,6 +275,16 @@ async def cancel_booking(booking_id: int, db: AsyncSession = Depends(get_db), cu
     await db.commit()
     await db.refresh(booking)
     logger.info(f"Booking {booking.id} was cancelled by user {current_user.id}")
+
+    # Emit a booking-cancelled event to SQS for downstream consumers
+    background_tasks.add_task(
+        publish_booking_event,
+        "cancelled",
+        booking.id,
+        property_title=prop.title,
+        cancelled_by=current_user.id,
+    )
+
     guest = await db.scalar(select(User).where(User.id == booking.guest_id))
     return _booking_detail_payload(booking, guest, prop)
 

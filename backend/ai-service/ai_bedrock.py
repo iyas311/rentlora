@@ -1,20 +1,20 @@
 import json
 import logging
+import urllib.request
 from functools import lru_cache
 
 import boto3
 from botocore.exceptions import ClientError
-from fastapi import HTTPException
-
 from config import get_settings
+from fastapi import HTTPException
 from schemas import PropertyDescriptionRequest
 
 logger = logging.getLogger("ai-service.bedrock")
 
-# We will use Amazon Nova Lite for descriptions and RAG summaries
-NOVA_MODEL_ID = "amazon.nova-lite-v1:0"
-# We will use Amazon Titan Text Embeddings V2 for vector embeddings
-EMBEDDING_MODEL_ID = "amazon.titan-embed-text-v2:0"
+# Model IDs are resolved from config (Parameter Store in dev/prod, with
+# fallback defaults of Nova Lite for text and Titan v2 for embeddings).
+NOVA_MODEL_ID = get_settings().nova_model_id
+EMBEDDING_MODEL_ID = get_settings().embedding_model_id
 
 
 @lru_cache
@@ -31,7 +31,7 @@ def _format_amenities(amenities: list[str]) -> str:
 def generate_property_description(payload: PropertyDescriptionRequest) -> str:
     """Generates a warm, booking-friendly property description using Amazon Nova."""
     client = _get_bedrock_client()
-    
+
     prompt = f"""
 Write a polished vacation rental description for a property listing.
 
@@ -80,13 +80,13 @@ Requirements:
         response_body = json.loads(response.get('body').read())
         # Nova Converse API format
         description = response_body.get("output", {}).get("message", {}).get("content", [{}])[0].get("text", "").strip()
-        
+
         if not description:
             raise HTTPException(status_code=502, detail="AI description generation returned an empty result")
-            
+
         logger.info(f"Successfully generated description for property '{payload.title}'")
         return description
-        
+
     except ClientError as e:
         logger.error(f"Bedrock API Call Failed: {e}")
         raise HTTPException(status_code=502, detail="AI description generation failed") from e
@@ -98,7 +98,7 @@ Requirements:
 def generate_embedding(text: str) -> list[float]:
     """Generates a 1024-dimension vector embedding using Amazon Titan."""
     client = _get_bedrock_client()
-    
+
     body = json.dumps({
         "inputText": text,
         "dimensions": 1024,
@@ -114,12 +114,12 @@ def generate_embedding(text: str) -> list[float]:
         )
         response_body = json.loads(response.get('body').read())
         embedding = response_body.get("embedding")
-        
+
         if not embedding:
             raise HTTPException(status_code=502, detail="AI embedding generation returned an empty result")
-            
+
         return embedding
-        
+
     except ClientError as e:
         logger.error(f"Bedrock API Call Failed for embedding: {e}")
         raise HTTPException(status_code=502, detail="AI embedding generation failed") from e
@@ -128,7 +128,7 @@ def generate_embedding(text: str) -> list[float]:
 def generate_rag_response(query: str, properties: list[dict]) -> str:
     """Generates a conversational summary answering the user's query based on the provided properties."""
     client = _get_bedrock_client()
-    
+
     # Format the context from the properties
     context_str = ""
     for i, prop in enumerate(properties, 1):
@@ -138,7 +138,7 @@ def generate_rag_response(query: str, properties: list[dict]) -> str:
         context_str += f"Price: ${prop.get('price_per_night')} per night\n"
         context_str += f"Capacity: {prop.get('max_guests')} guests, {prop.get('bedrooms')} beds, {prop.get('bathrooms')} baths\n"
         context_str += f"Description: {prop.get('description')}\n"
-    
+
     prompt = f"""
 You are a helpful vacation rental assistant for Rentlora.
 A user is searching for properties. I have retrieved the best matching properties based on their search.
@@ -180,7 +180,7 @@ Instructions:
         response_body = json.loads(response.get('body').read())
         answer = response_body.get("output", {}).get("message", {}).get("content", [{}])[0].get("text", "").strip()
         return answer
-        
+
     except ClientError as e:
         logger.error(f"Bedrock API Call Failed for RAG: {e}")
         raise HTTPException(status_code=502, detail="AI summary generation failed") from e
@@ -193,14 +193,13 @@ def _http_request(url: str, method: str = "GET", data: dict = None, token: str =
     }
     if token:
         headers["Authorization"] = f"Bearer {token}"
-        
+
     req_body = None
     if data is not None:
         req_body = json.dumps(data).encode("utf-8")
-        
+
     req = urllib.request.Request(url, data=req_body, headers=headers, method=method)
     try:
-        import urllib.request
         with urllib.request.urlopen(req) as response:
             return json.loads(response.read().decode("utf-8"))
     except Exception as e:
@@ -285,9 +284,9 @@ Instructions:
 
 def run_agent_chat(message: str, history: list, token: str = None) -> dict:
     """Runs a conversational agent loop with tool-calling via Amazon Bedrock converse API."""
-    import urllib.request
     client = _get_bedrock_client()
-    
+    cfg = get_settings()
+
     # Format message history for Bedrock Converse API
     messages = []
     for msg in history:
@@ -298,14 +297,14 @@ def run_agent_chat(message: str, history: list, token: str = None) -> dict:
             "role": msg.role,
             "content": [{"text": msg.content}]
         })
-        
+
     messages.append({
         "role": "user",
         "content": [{"text": message}]
     })
-    
+
     properties_meta = []
-    
+
     # Run the loop up to 5 times to handle consecutive tool calls
     for _ in range(5):
         try:
@@ -319,10 +318,10 @@ def run_agent_chat(message: str, history: list, token: str = None) -> dict:
                 },
                 toolConfig={"tools": AGENT_TOOLS}
             )
-            
+
             output_msg = response["output"]["message"]
             messages.append(output_msg)
-            
+
             if response.get("stopReason") == "toolUse":
                 tool_results = []
                 for content in output_msg.get("content", []):
@@ -331,30 +330,30 @@ def run_agent_chat(message: str, history: list, token: str = None) -> dict:
                         name = tool_use["name"]
                         tool_use_id = tool_use["toolUseId"]
                         args = tool_use.get("input", {})
-                        
+
                         logger.info(f"Agent requested tool call: {name} with args {args}")
-                        
+
                         # Execute the requested tool
                         if name == "search_properties":
                             res = _http_request(
-                                "http://ai-search-service:8005/api/search/ai",
+                                f"{cfg.ai_search_service_url}/api/search/ai",
                                 method="POST",
                                 data={"query": args.get("query"), "limit": 4}
                             )
                             # Extract properties list to return as metadata to the UI
                             if isinstance(res, dict) and "properties" in res:
                                 properties_meta = res["properties"]
-                                
+
                         elif name == "get_my_bookings":
                             res = _http_request(
-                                "http://booking-service:8002/api/bookings",
+                                f"{cfg.booking_service_url}/api/bookings",
                                 method="GET",
                                 token=token
                             )
-                            
+
                         elif name == "create_booking":
                             res = _http_request(
-                                "http://booking-service:8002/api/bookings",
+                                f"{cfg.booking_service_url}/api/bookings",
                                 method="POST",
                                 data={
                                     "property_id": args.get("property_id"),
@@ -365,7 +364,7 @@ def run_agent_chat(message: str, history: list, token: str = None) -> dict:
                             )
                         else:
                             res = {"error": f"Unknown tool: {name}"}
-                            
+
                         tool_results.append({
                             "toolResult": {
                                 "toolUseId": tool_use_id,
@@ -373,34 +372,34 @@ def run_agent_chat(message: str, history: list, token: str = None) -> dict:
                                 "status": "success" if "error" not in res else "error"
                             }
                         })
-                
+
                 # Append tool result responses as user message content
                 messages.append({
                     "role": "user",
                     "content": tool_results
                 })
-                
+
                 # Loop back to let the model generate a final text answer based on the tool results
                 continue
-                
+
             # If stopped normally, return the response text
             final_text = ""
             for content in output_msg.get("content", []):
                 if "text" in content:
                     final_text += content["text"]
-            
+
             return {
                 "response": final_text.strip(),
                 "properties": properties_meta
             }
-            
+
         except ClientError as e:
             logger.error(f"Bedrock Agent Converse failed: {e}")
             raise HTTPException(status_code=502, detail=f"AI Agent failed: {str(e)}")
         except Exception as e:
             logger.error(f"Unexpected error in agent loop: {e}")
             raise HTTPException(status_code=500, detail="Internal server error in AI Agent")
-            
+
     # Fallback if loop exceeded limit
     return {
         "response": "I ran into a loop issue trying to solve your request. Please try again.",

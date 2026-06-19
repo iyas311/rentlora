@@ -3,15 +3,14 @@ import logging
 import time
 import uuid
 
-from fastapi import FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import text
-
+import models  # noqa: F401
 from config import get_settings
 from database import Base, engine
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from logging_config import setup_logging
-import models  # noqa: F401
 from routes.admin import router as admin_router
+from sqlalchemy import text
 
 settings = get_settings()
 setup_logging("admin-service")
@@ -76,6 +75,24 @@ async def startup():
 @app.get("/health")
 async def health():
     return {"status": "ok", "service": "admin-service", "db": "connected"}
+
+
+@app.get("/healthz")
+async def healthz():
+    """Liveness probe — cheap, no dependencies."""
+    return {"status": "ok"}
+
+
+@app.get("/ready")
+async def ready():
+    """Readiness probe — verifies the database is reachable."""
+    try:
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+        return {"status": "ready"}
+    except Exception as e:
+        logger.warning(f"readiness check failed: {e}")
+        raise HTTPException(status_code=503, detail="not ready")
 
 
 app.include_router(admin_router, prefix="/api")
