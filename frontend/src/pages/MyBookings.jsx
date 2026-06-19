@@ -8,6 +8,7 @@ import ReviewForm from "../components/reviews/ReviewForm";
 import { notifyError, notifySuccess } from "../components/ui/Toast";
 import { useBookings } from "../hooks/useBookings";
 import { FiCalendar, FiCompass, FiX } from "react-icons/fi";
+import { CardSkeleton } from "../components/ui/Skeleton";
 
 export default function MyBookings() {
   const [tab, setTab] = useState("all");
@@ -77,7 +78,11 @@ export default function MyBookings() {
 
       {/* Bookings List/Grid */}
       {isLoading ? (
-        <div className="text-center py-12 text-slate-400">Retrieving your reservations...</div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <CardSkeleton key={i} />
+          ))}
+        </div>
       ) : bookings && bookings.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {bookings.map((b) => (
