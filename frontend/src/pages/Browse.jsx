@@ -82,7 +82,7 @@ export default function Browse() {
           </div>
           <div className="relative z-10">
             <h2 className="text-lg font-bold text-indigo-900 mb-3 flex items-center">
-              <FiZap className="mr-2 text-indigo-600 text-amber-500 fill-amber-500" /> AI-Powered Semantic Search
+              <FiZap className="mr-2 text-indigo-600 text-amber-500 fill-amber-500" /> AI Powered Search
             </h2>
             <form onSubmit={handleAiSearch} className="flex gap-3">
               <div className="relative flex-1">
