@@ -33,9 +33,9 @@ async def backfill_embeddings():
                     
                     await session.commit()
                     logger.info("Batch embedded successfully.")
-                else:
-                    # No properties found, sleep for a bit before checking again
-                    await asyncio.sleep(10)
+                
+                # Always sleep for a bit to avoid tight CPU spinning and rate limits
+                await asyncio.sleep(10)
         except Exception as e:
             logger.error(f"Error in sync background task: {e}")
             await asyncio.sleep(10)

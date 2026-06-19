@@ -184,3 +184,226 @@ Instructions:
     except ClientError as e:
         logger.error(f"Bedrock API Call Failed for RAG: {e}")
         raise HTTPException(status_code=502, detail="AI summary generation failed") from e
+
+
+def _http_request(url: str, method: str = "GET", data: dict = None, token: str = None) -> dict:
+    """Helper to perform HTTP requests to other local microservices."""
+    headers = {
+        "Content-Type": "application/json"
+    }
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+        
+    req_body = None
+    if data is not None:
+        req_body = json.dumps(data).encode("utf-8")
+        
+    req = urllib.request.Request(url, data=req_body, headers=headers, method=method)
+    try:
+        import urllib.request
+        with urllib.request.urlopen(req) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except Exception as e:
+        logger.error(f"HTTP request to {url} failed: {e}")
+        return {"error": str(e)}
+
+
+AGENT_TOOLS = [
+    {
+        "toolSpec": {
+            "name": "search_properties",
+            "description": "Finds property rentals by matching location, description, or natural language query (e.g. 'cabin in the mountains', 'beachfront house in Nice'). Returns a list of properties.",
+            "inputSchema": {
+                "json": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "The search term or natural language description of properties."
+                        }
+                    },
+                    "required": ["query"]
+                }
+            }
+        }
+    },
+    {
+        "toolSpec": {
+            "name": "get_my_bookings",
+            "description": "Retrieves the list of existing bookings/reservations made by the current user.",
+            "inputSchema": {
+                "json": {
+                    "type": "object",
+                    "properties": {}
+                }
+            }
+        }
+    },
+    {
+        "toolSpec": {
+            "name": "create_booking",
+            "description": "Reserves/books a property for specific check-in and check-out dates.",
+            "inputSchema": {
+                "json": {
+                    "type": "object",
+                    "properties": {
+                        "property_id": {
+                            "type": "integer",
+                            "description": "The numeric ID of the property to reserve."
+                        },
+                        "check_in": {
+                            "type": "string",
+                            "description": "Check-in date in YYYY-MM-DD format."
+                        },
+                        "check_out": {
+                            "type": "string",
+                            "description": "Check-out date in YYYY-MM-DD format."
+                        }
+                    },
+                    "required": ["property_id", "check_in", "check_out"]
+                }
+            }
+        }
+    }
+]
+
+
+SYSTEM_PROMPT = """
+You are Rentlora's AI Concierge, a helpful and professional vacation rental assistant.
+You can help users find properties, check their bookings, or book a property.
+
+Instructions:
+- Use search_properties to find properties matching the user's criteria.
+- Use get_my_bookings to check their active reservations.
+- Use create_booking to create a booking on behalf of the user. Ensure you have the property_id, check_in, and check_out dates.
+- Keep responses friendly, warm, and concise.
+- If you perform an action (like booking or searching), explain what you did and summarize the results nicely.
+- Always guide the user through the process. If they want to book, but didn't specify dates, ask them for the check-in and check-out dates.
+- If a tool execution fails or returns an error, explain it politely to the user.
+"""
+
+
+def run_agent_chat(message: str, history: list, token: str = None) -> dict:
+    """Runs a conversational agent loop with tool-calling via Amazon Bedrock converse API."""
+    import urllib.request
+    client = _get_bedrock_client()
+    
+    # Format message history for Bedrock Converse API
+    messages = []
+    for msg in history:
+        # Skip leading assistant messages because Bedrock requires starting with a user message
+        if not messages and msg.role == "assistant":
+            continue
+        messages.append({
+            "role": msg.role,
+            "content": [{"text": msg.content}]
+        })
+        
+    messages.append({
+        "role": "user",
+        "content": [{"text": message}]
+    })
+    
+    properties_meta = []
+    
+    # Run the loop up to 5 times to handle consecutive tool calls
+    for _ in range(5):
+        try:
+            response = client.converse(
+                modelId=NOVA_MODEL_ID,
+                messages=messages,
+                system=[{"text": SYSTEM_PROMPT}],
+                inferenceConfig={
+                    "maxTokens": 800,
+                    "temperature": 0.3
+                },
+                toolConfig={"tools": AGENT_TOOLS}
+            )
+            
+            output_msg = response["output"]["message"]
+            messages.append(output_msg)
+            
+            if response.get("stopReason") == "toolUse":
+                tool_results = []
+                for content in output_msg.get("content", []):
+                    if "toolUse" in content:
+                        tool_use = content["toolUse"]
+                        name = tool_use["name"]
+                        tool_use_id = tool_use["toolUseId"]
+                        args = tool_use.get("input", {})
+                        
+                        logger.info(f"Agent requested tool call: {name} with args {args}")
+                        
+                        # Execute the requested tool
+                        if name == "search_properties":
+                            res = _http_request(
+                                "http://search-service:8005/api/search/ai",
+                                method="POST",
+                                data={"query": args.get("query"), "limit": 4}
+                            )
+                            # Extract properties list to return as metadata to the UI
+                            if isinstance(res, dict) and "properties" in res:
+                                properties_meta = res["properties"]
+                                
+                        elif name == "get_my_bookings":
+                            res = _http_request(
+                                "http://booking-service:8002/api/bookings",
+                                method="GET",
+                                token=token
+                            )
+                            
+                        elif name == "create_booking":
+                            res = _http_request(
+                                "http://booking-service:8002/api/bookings",
+                                method="POST",
+                                data={
+                                    "property_id": args.get("property_id"),
+                                    "check_in": args.get("check_in"),
+                                    "check_out": args.get("check_out")
+                                },
+                                token=token
+                            )
+                        else:
+                            res = {"error": f"Unknown tool: {name}"}
+                            
+                        tool_results.append({
+                            "toolResult": {
+                                "toolUseId": tool_use_id,
+                                "content": [{"json": res}],
+                                "status": "success" if "error" not in res else "error"
+                            }
+                        })
+                
+                # Append tool result responses as user message content
+                messages.append({
+                    "role": "user",
+                    "content": tool_results
+                })
+                
+                # Loop back to let the model generate a final text answer based on the tool results
+                continue
+                
+            # If stopped normally, return the response text
+            final_text = ""
+            for content in output_msg.get("content", []):
+                if "text" in content:
+                    final_text += content["text"]
+            
+            return {
+                "response": final_text.strip(),
+                "properties": properties_meta
+            }
+            
+        except ClientError as e:
+            logger.error(f"Bedrock Agent Converse failed: {e}")
+            raise HTTPException(status_code=502, detail=f"AI Agent failed: {str(e)}")
+        except Exception as e:
+            logger.error(f"Unexpected error in agent loop: {e}")
+            raise HTTPException(status_code=500, detail="Internal server error in AI Agent")
+            
+    # Fallback if loop exceeded limit
+    return {
+        "response": "I ran into a loop issue trying to solve your request. Please try again.",
+        "properties": []
+    }
+

@@ -3,15 +3,23 @@ import time
 
 from fastapi import FastAPI, Depends, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from typing import Optional
 
 from config import get_settings
 from auth import get_current_user
 from schemas import (
     PropertyDescriptionRequest, PropertyDescriptionResponse,
     EmbedRequest, EmbedResponse,
-    RagRequest, RagResponse
+    RagRequest, RagResponse,
+    ChatRequest, ChatResponse
 )
-from ai_bedrock import generate_property_description, generate_embedding, generate_rag_response
+from ai_bedrock import (
+    generate_property_description, generate_embedding, generate_rag_response,
+    run_agent_chat
+)
+
+security = HTTPBearer(auto_error=False)
 
 settings = get_settings()
 logging.basicConfig(level=logging.INFO)
@@ -62,4 +70,16 @@ async def create_embedding(payload: EmbedRequest, user=Depends(get_current_user)
 @app.post("/api/ai/rag", response_model=RagResponse)
 async def create_rag_summary(payload: RagRequest, user=Depends(get_current_user)):
     return RagResponse(summary=generate_rag_response(payload.query, payload.properties))
+
+
+@app.post("/api/ai/chat", response_model=ChatResponse)
+async def chat_with_agent(
+    payload: ChatRequest,
+    creds: Optional[HTTPAuthorizationCredentials] = Depends(security)
+):
+    token = None
+    if creds:
+        token = creds.credentials
+    return run_agent_chat(payload.message, payload.history, token)
+
 

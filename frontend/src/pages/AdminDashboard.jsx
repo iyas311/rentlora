@@ -6,7 +6,7 @@ import { useAuth } from '../hooks/useAuth';
 
 // Mocking API calls directly here for simplicity, though they usually go to a service file
 const fetchStats = async (token) => {
-  const res = await fetch('http://localhost:8004/api/admin/stats', {
+  const res = await fetch('/api/admin/stats', {
     headers: { Authorization: `Bearer ${token}` }
   });
   if (!res.ok) throw new Error('Failed to fetch stats');
@@ -14,7 +14,7 @@ const fetchStats = async (token) => {
 };
 
 const fetchUsers = async (token) => {
-  const res = await fetch('http://localhost:8004/api/admin/users', {
+  const res = await fetch('/api/admin/users', {
     headers: { Authorization: `Bearer ${token}` }
   });
   if (!res.ok) throw new Error('Failed to fetch users');
@@ -22,7 +22,7 @@ const fetchUsers = async (token) => {
 };
 
 const fetchProperties = async (token) => {
-  const res = await fetch('http://localhost:8004/api/admin/properties/all', {
+  const res = await fetch('/api/admin/properties/all', {
     headers: { Authorization: `Bearer ${token}` }
   });
   if (!res.ok) throw new Error('Failed to fetch properties');
@@ -30,7 +30,7 @@ const fetchProperties = async (token) => {
 };
 
 const updateUserRole = async ({ userId, role, token }) => {
-  const res = await fetch(`http://localhost:8004/api/admin/users/${userId}/role`, {
+  const res = await fetch(`/api/admin/users/${userId}/role`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
@@ -44,7 +44,7 @@ const updateUserRole = async ({ userId, role, token }) => {
 
 // Assuming delete property exists in property-service
 const deleteProperty = async ({ propertyId, token }) => {
-  const res = await fetch(`http://localhost:8001/api/properties/${propertyId}`, {
+  const res = await fetch(`/api/properties/${propertyId}`, {
     method: 'DELETE',
     headers: { Authorization: `Bearer ${token}` }
   });
@@ -66,7 +66,7 @@ const StatCard = ({ title, value, icon: Icon, color }) => (
 );
 
 export default function AdminDashboard() {
-  const { token } = useAuth();
+  const token = localStorage.getItem("access_token");
   const [activeTab, setActiveTab] = useState('overview');
   const queryClient = useQueryClient();
 

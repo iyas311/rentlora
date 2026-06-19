@@ -80,6 +80,7 @@ async def _property_card_query(db: AsyncSession, filters, page, limit):
 
 @router.get("")
 async def list_properties(
+    host_id: int | None = None,
     city: str | None = None,
     min_price: float | None = None,
     max_price: float | None = None,
@@ -93,6 +94,8 @@ async def list_properties(
     db: AsyncSession = Depends(get_db),
 ):
     filters = []
+    if host_id is not None:
+        filters.append(Property.host_id == host_id)
     if city:
         filters.append(Property.city.ilike(f"%{city.strip()}%"))
     if min_price is not None:

@@ -13,6 +13,7 @@ import PropertyDetail from "./pages/PropertyDetail";
 import Register from "./pages/Register";
 
 import AdminDashboard from "./pages/AdminDashboard";
+import AiAssistant from "./components/AiAssistant";
 
 function Protected({ children, role }) {
   const { isAuthenticated, user } = useAuth();
@@ -37,6 +38,7 @@ export default function App() {
         <Route path="/admin" element={<Protected role="admin"><AdminDashboard /></Protected>} />
         <Route path="/profile" element={<Protected><Profile /></Protected>} />
       </Routes>
+      <AiAssistant />
     </Layout>
   );
 }
