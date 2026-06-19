@@ -36,58 +36,58 @@ export default function Home() {
           </div>
 
           {/* Search widget overlay (Glassmorphism) */}
-          <form onSubmit={handleSearchSubmit} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/20 shadow-2xl max-w-5xl">
+          <form onSubmit={handleSearchSubmit} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 bg-white/95 backdrop-blur-lg p-5 rounded-2xl border border-slate-100 shadow-2xl max-w-5xl">
             {/* City */}
             <div className="relative">
-              <label className="block text-[10px] font-extrabold text-indigo-200 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                <FiMapPin /> Location
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                <FiMapPin className="text-slate-400" /> Location
               </label>
               <input 
                 type="text" 
                 placeholder="Where to?" 
                 value={search.city} 
                 onChange={(e) => setSearch({ ...search, city: e.target.value })}
-                className="w-full bg-white/10 hover:bg-white/20 focus:bg-white text-white focus:text-slate-900 border border-white/10 rounded-xl px-4 py-2.5 outline-none text-sm font-medium transition placeholder-white/60 focus:placeholder-slate-400"
+                className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-2.5 outline-none text-sm font-semibold text-slate-800 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition placeholder-slate-400"
               />
             </div>
 
             {/* Check-in */}
             <div className="relative">
-              <label className="block text-[10px] font-extrabold text-indigo-200 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                <FiCalendar /> Check-in
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                <FiCalendar className="text-slate-400" /> Check-in
               </label>
               <input 
                 type="date" 
                 value={search.check_in} 
                 onChange={(e) => setSearch({ ...search, check_in: e.target.value })}
-                className="w-full bg-white/10 hover:bg-white/20 focus:bg-white text-white focus:text-slate-900 border border-white/10 rounded-xl px-4 py-2.5 outline-none text-sm font-medium transition"
+                className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-2.5 outline-none text-sm font-semibold text-slate-800 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition"
               />
             </div>
 
             {/* Check-out */}
             <div className="relative">
-              <label className="block text-[10px] font-extrabold text-indigo-200 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                <FiCalendar /> Check-out
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                <FiCalendar className="text-slate-400" /> Check-out
               </label>
               <input 
                 type="date" 
                 value={search.check_out} 
                 onChange={(e) => setSearch({ ...search, check_out: e.target.value })}
-                className="w-full bg-white/10 hover:bg-white/20 focus:bg-white text-white focus:text-slate-900 border border-white/10 rounded-xl px-4 py-2.5 outline-none text-sm font-medium transition"
+                className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-2.5 outline-none text-sm font-semibold text-slate-800 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition"
               />
             </div>
 
             {/* Guests */}
             <div className="relative">
-              <label className="block text-[10px] font-extrabold text-indigo-200 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                <FiUsers /> Guests
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                <FiUsers className="text-slate-400" /> Guests
               </label>
               <input 
                 type="number" 
                 min={1} 
                 value={search.guests} 
                 onChange={(e) => setSearch({ ...search, guests: Number(e.target.value) })}
-                className="w-full bg-white/10 hover:bg-white/20 focus:bg-white text-white focus:text-slate-900 border border-white/10 rounded-xl px-4 py-2.5 outline-none text-sm font-medium transition"
+                className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-2.5 outline-none text-sm font-semibold text-slate-800 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition"
               />
             </div>
 
