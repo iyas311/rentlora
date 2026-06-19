@@ -1,5 +1,6 @@
+from datetime import date
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import desc, func, select
+from sqlalchemy import desc, func, select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth import get_current_user
@@ -39,8 +40,20 @@ async def property_reviews(property_id: int, db: AsyncSession = Depends(get_db))
     }
 
 
+async def autocomplete_past_bookings(db: AsyncSession):
+    today = date.today()
+    stmt = select(Booking).where(and_(Booking.status == "confirmed", Booking.check_out < today))
+    past = (await db.execute(stmt)).scalars().all()
+    if past:
+        for b in past:
+            b.status = "completed"
+            db.add(b)
+        await db.commit()
+
+
 @router.post("")
 async def create_review(payload: ReviewCreate, db: AsyncSession = Depends(get_db), user=Depends(get_current_user)):
+    await autocomplete_past_bookings(db)
     booking = await db.scalar(select(Booking).where(Booking.id == payload.booking_id))
     if not booking:
         raise HTTPException(status_code=404, detail="Booking not found")

@@ -1,34 +1,77 @@
 import { useState } from "react";
-import Button from "../ui/Button";
-import Input from "../ui/Input";
 import { calcNights } from "../../utils/dateUtils";
 import { calcTotal, formatCurrency } from "../../utils/priceUtils";
 
 export default function BookingWidget({ property, onBook }) {
   const [form, setForm] = useState({ check_in: "", check_out: "", guests_count: 1 });
   const nights = calcNights(form.check_in, form.check_out);
+  const total = calcTotal(property.price_per_night, nights);
+
   return (
-    <div className="sticky top-24 rounded-lg bg-white p-4 shadow-lg border border-gray-100">
-      <p className="text-2xl font-bold text-primary">{formatCurrency(property.price_per_night)}<span className="text-sm font-normal text-muted"> / night</span></p>
-      <div className="mt-4 space-y-3">
-        <div>
-          <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">Check-in Date</label>
-          <Input type="date" value={form.check_in} onChange={(e) => setForm({ ...form, check_in: e.target.value })} />
+    <div className="rounded-2xl bg-white p-6 shadow-xl shadow-slate-200/40 border border-slate-100">
+      <div className="mb-6 flex items-baseline gap-1">
+        <span className="text-3xl font-black text-slate-900">{formatCurrency(property.price_per_night)}</span>
+        <span className="text-sm font-semibold text-slate-500">/ night</span>
+      </div>
+
+      <div className="space-y-4">
+        {/* Date Inputs Container */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Check-in</label>
+            <input 
+              type="date" 
+              value={form.check_in} 
+              onChange={(e) => setForm({ ...form, check_in: e.target.value })}
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-900 outline-none focus:bg-white focus:ring-2 focus:ring-indigo-600 focus:border-transparent transition"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Check-out</label>
+            <input 
+              type="date" 
+              value={form.check_out} 
+              onChange={(e) => setForm({ ...form, check_out: e.target.value })}
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-900 outline-none focus:bg-white focus:ring-2 focus:ring-indigo-600 focus:border-transparent transition"
+            />
+          </div>
         </div>
+
+        {/* Guests Input */}
         <div>
-          <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">Check-out Date</label>
-          <Input type="date" value={form.check_out} onChange={(e) => setForm({ ...form, check_out: e.target.value })} />
-        </div>
-        <div>
-          <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">Number of Guests</label>
-          <Input type="number" min={1} max={property.max_guests} value={form.guests_count} onChange={(e) => setForm({ ...form, guests_count: Number(e.target.value) })} />
+          <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Guests</label>
+          <input 
+            type="number" 
+            min={1} 
+            max={property.max_guests} 
+            value={form.guests_count} 
+            onChange={(e) => setForm({ ...form, guests_count: Number(e.target.value) })}
+            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-900 outline-none focus:bg-white focus:ring-2 focus:ring-indigo-600 focus:border-transparent transition"
+          />
         </div>
       </div>
-      <div className="mt-4 pt-3 border-t border-gray-100 flex justify-between items-center">
-        <span className="text-sm font-medium text-gray-700">Total ({nights} night{nights !== 1 ? "s" : ""})</span>
-        <span className="text-lg font-bold text-primary">{formatCurrency(calcTotal(property.price_per_night, nights))}</span>
+
+      {/* Pricing Summary */}
+      <div className="mt-6 pt-4 border-t border-slate-100">
+        <div className="flex justify-between items-center mb-4">
+          <span className="text-slate-600 font-medium underline decoration-slate-300 underline-offset-4">
+            {formatCurrency(property.price_per_night)} x {nights} night{nights !== 1 ? "s" : ""}
+          </span>
+          <span className="text-slate-900 font-semibold">{formatCurrency(total)}</span>
+        </div>
+        <div className="flex justify-between items-center pt-4 border-t border-slate-100">
+          <span className="text-lg font-black text-slate-900">Total</span>
+          <span className="text-xl font-black text-indigo-600">{formatCurrency(total)}</span>
+        </div>
       </div>
-      <Button className="mt-4 w-full" onClick={() => onBook(form)}>Book Now</Button>
+
+      <button 
+        onClick={() => onBook(form)}
+        className="mt-6 w-full rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 text-lg shadow-lg shadow-indigo-200 transition-all hover:-translate-y-0.5 active:translate-y-0"
+      >
+        Reserve Now
+      </button>
+      <p className="text-center text-xs text-slate-400 font-medium mt-3">You won't be charged yet</p>
     </div>
   );
 }

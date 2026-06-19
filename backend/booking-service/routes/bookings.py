@@ -44,12 +44,24 @@ def _booking_detail_payload(booking: Booking, guest: User, prop: Property):
     }
 
 
+async def autocomplete_past_bookings(db: AsyncSession):
+    today = date.today()
+    stmt = select(Booking).where(and_(Booking.status == "confirmed", Booking.check_out < today))
+    past = (await db.execute(stmt)).scalars().all()
+    if past:
+        for b in past:
+            b.status = "completed"
+            db.add(b)
+        await db.commit()
+
+
 @router.get("/my")
 async def my_bookings(
     status: str = Query(default="all", pattern="^(upcoming|past|cancelled|all)$"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    await autocomplete_past_bookings(db)
     # Allow any authenticated user to view bookings they created as a guest
     today = date.today()
     stmt = (
@@ -97,6 +109,7 @@ async def my_bookings(
 async def host_bookings(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     if current_user.role != "host":
         raise HTTPException(status_code=403, detail="Only hosts can access this endpoint")
+    await autocomplete_past_bookings(db)
     stmt = (
         select(Booking, User, Property)
         .join(User, User.id == Booking.guest_id)
@@ -122,6 +135,7 @@ async def host_bookings(db: AsyncSession = Depends(get_db), current_user: User =
 
 @router.get("/{booking_id}")
 async def get_booking(booking_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    await autocomplete_past_bookings(db)
     row = (
         await db.execute(
             select(Booking, User, Property)
@@ -244,5 +258,30 @@ async def cancel_booking(booking_id: int, db: AsyncSession = Depends(get_db), cu
     await db.commit()
     await db.refresh(booking)
     logger.info(f"Booking {booking.id} was cancelled by user {current_user.id}")
+    guest = await db.scalar(select(User).where(User.id == booking.guest_id))
+    return _booking_detail_payload(booking, guest, prop)
+
+
+@router.put("/{booking_id}/complete")
+async def complete_booking(booking_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    row = (
+        await db.execute(
+            select(Booking, Property)
+            .join(Property, Property.id == Booking.property_id)
+            .where(Booking.id == booking_id)
+        )
+    ).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    booking, prop = row
+    if current_user.id != prop.host_id:
+        raise HTTPException(status_code=403, detail="Only the host can complete this booking")
+    if booking.status != "confirmed":
+        raise HTTPException(status_code=400, detail="Only confirmed bookings can be completed")
+    booking.status = "completed"
+    db.add(booking)
+    await db.commit()
+    await db.refresh(booking)
+    logger.info(f"Booking {booking.id} was marked as completed by host {current_user.id}")
     guest = await db.scalar(select(User).where(User.id == booking.guest_id))
     return _booking_detail_payload(booking, guest, prop)

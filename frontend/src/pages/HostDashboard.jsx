@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { getHostBookings, cancelBooking } from "../api/bookings";
+import { getHostBookings, cancelBooking, completeBooking } from "../api/bookings";
 import { getProperties, removeProperty } from "../api/properties";
 import Button from "../components/ui/Button";
 import { useAuth } from "../hooks/useAuth";
@@ -34,6 +34,13 @@ export default function HostDashboard() {
 
   const cancelMutation = useMutation({
     mutationFn: cancelBooking,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["host-bookings"] });
+    }
+  });
+
+  const completeMutation = useMutation({
+    mutationFn: completeBooking,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["host-bookings"] });
     }
@@ -295,16 +302,28 @@ export default function HostDashboard() {
                         </td>
                         <td className="py-4 text-center">
                           {b.status === "confirmed" && (
-                            <button
-                              onClick={() => {
-                                if (window.confirm("Are you sure you want to cancel this booking?")) {
-                                  cancelMutation.mutate(b.id);
-                                }
-                              }}
-                              className="text-xs font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-100 hover:border-rose-200 px-2.5 py-1.5 rounded-lg transition"
-                            >
-                              Cancel Stay
-                            </button>
+                            <div className="flex flex-col items-center gap-2">
+                              <button
+                                onClick={() => {
+                                  if (window.confirm("Mark this stay as completed (checked-out)?")) {
+                                    completeMutation.mutate(b.id);
+                                  }
+                                }}
+                                className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 hover:border-emerald-200 px-2.5 py-1.5 rounded-lg w-full transition"
+                              >
+                                Complete Stay
+                              </button>
+                              <button
+                                onClick={() => {
+                                  if (window.confirm("Are you sure you want to cancel this booking?")) {
+                                    cancelMutation.mutate(b.id);
+                                  }
+                                }}
+                                className="text-xs font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-100 hover:border-rose-200 px-2.5 py-1.5 rounded-lg w-full transition"
+                              >
+                                Cancel Stay
+                              </button>
+                            </div>
                           )}
                         </td>
                       </tr>

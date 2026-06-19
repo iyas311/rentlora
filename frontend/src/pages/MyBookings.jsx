@@ -1,16 +1,31 @@
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { cancelBooking } from "../api/bookings";
+import { createReview } from "../api/reviews";
 import BookingCard from "../components/bookings/BookingCard";
+import ReviewForm from "../components/reviews/ReviewForm";
 import { notifyError, notifySuccess } from "../components/ui/Toast";
 import { useBookings } from "../hooks/useBookings";
-import { FiCalendar, FiCompass } from "react-icons/fi";
+import { FiCalendar, FiCompass, FiX } from "react-icons/fi";
 
 export default function MyBookings() {
   const [tab, setTab] = useState("all");
+  const [reviewBooking, setReviewBooking] = useState(null);
   const { data: bookings, isLoading } = useBookings(tab);
   const qc = useQueryClient();
+
+  const reviewMutation = useMutation({
+    mutationFn: createReview,
+    onSuccess: () => {
+      notifySuccess("Thank you! Your review has been submitted.");
+      setReviewBooking(null);
+      qc.invalidateQueries({ queryKey: ["bookings"] });
+    },
+    onError: (e) => {
+      notifyError(e.response?.data?.detail || "Failed to submit review. Please try again.");
+    }
+  });
 
   const onCancel = async (id) => {
     if (!window.confirm("Are you sure you want to cancel this booking?")) return;
@@ -66,7 +81,7 @@ export default function MyBookings() {
       ) : bookings && bookings.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {bookings.map((b) => (
-            <BookingCard key={b.id} booking={b} onCancel={onCancel} />
+            <BookingCard key={b.id} booking={b} onCancel={onCancel} onReview={(booking) => setReviewBooking(booking)} />
           ))}
         </div>
       ) : (
@@ -84,6 +99,37 @@ export default function MyBookings() {
               Explore Properties
             </button>
           </Link>
+        </div>
+      )}
+
+      {/* Review Modal Overlay */}
+      {reviewBooking && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden relative animate-in zoom-in-95 duration-200">
+            <button
+              onClick={() => setReviewBooking(null)}
+              className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition"
+            >
+              <FiX size={20} />
+            </button>
+            <div className="p-6">
+              <h2 className="text-2xl font-black text-slate-900">Share Your Experience</h2>
+              <p className="text-sm text-slate-500 mt-1 mb-6">
+                How was your stay at <span className="font-semibold text-slate-700">{reviewBooking.property.title}</span>?
+              </p>
+              <ReviewForm
+                onSubmit={(data) => {
+                  reviewMutation.mutate({
+                    booking_id: reviewBooking.id,
+                    property_id: reviewBooking.property.id,
+                    rating: data.rating,
+                    comment: data.comment
+                  });
+                }}
+                isSubmitting={reviewMutation.isPending}
+              />
+            </div>
+          </div>
         </div>
       )}
     </div>
