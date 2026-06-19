@@ -19,26 +19,27 @@ export default function Home() {
     <div className="space-y-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
       
       {/* Hero Section */}
-      <section className="relative rounded-3xl overflow-hidden shadow-xl min-h-[480px] flex items-center bg-[url('https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=1600&q=80')] bg-cover bg-center">
-        {/* Dark overlay for text contrast */}
-        <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/40 to-transparent z-10" />
+      <section className="relative rounded-3xl overflow-hidden shadow-xl min-h-[440px] flex items-center bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-950">
+        {/* Ambient Glow Effects */}
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
         
-        <div className="relative z-20 max-w-4xl p-8 sm:p-12 text-white space-y-6">
+        <div className="relative z-20 w-full p-8 sm:p-12 text-white space-y-8">
           <div className="space-y-3">
-            <span className="inline-block text-xs uppercase font-bold tracking-widest text-indigo-300">Welcome to Rentlora</span>
-            <h1 className="text-4xl sm:text-5xl font-black tracking-tight leading-tight drop-shadow-md">
+            <span className="inline-block text-xs uppercase font-bold tracking-widest text-indigo-400">Welcome to Rentlora</span>
+            <h1 className="text-4xl sm:text-5xl font-black tracking-tight leading-tight">
               Discover Premium <br />
               Vacation Stays Worldwide
             </h1>
-            <p className="text-sm sm:text-base text-slate-200 drop-shadow-sm max-w-xl leading-relaxed">
+            <p className="text-sm sm:text-base text-slate-300 max-w-xl leading-relaxed">
               Bespoke luxury hospitality in handpicked cabins, beach houses, and boutique penthouses.
             </p>
           </div>
 
-          {/* Search widget overlay (Glassmorphism) */}
-          <form onSubmit={handleSearchSubmit} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 bg-white/95 backdrop-blur-lg p-5 rounded-2xl border border-slate-100 shadow-2xl max-w-5xl">
+          {/* Search widget overlay (Glassmorphism 12-column grid) */}
+          <form onSubmit={handleSearchSubmit} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-4 bg-white/95 backdrop-blur-lg p-5 rounded-2xl border border-slate-100 shadow-2xl max-w-5xl">
             {/* City */}
-            <div className="relative">
+            <div className="relative lg:col-span-3">
               <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
                 <FiMapPin className="text-slate-400" /> Location
               </label>
@@ -52,7 +53,7 @@ export default function Home() {
             </div>
 
             {/* Check-in */}
-            <div className="relative">
+            <div className="relative lg:col-span-3">
               <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
                 <FiCalendar className="text-slate-400" /> Check-in
               </label>
@@ -65,7 +66,7 @@ export default function Home() {
             </div>
 
             {/* Check-out */}
-            <div className="relative">
+            <div className="relative lg:col-span-3">
               <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
                 <FiCalendar className="text-slate-400" /> Check-out
               </label>
@@ -78,7 +79,7 @@ export default function Home() {
             </div>
 
             {/* Guests */}
-            <div className="relative">
+            <div className="relative lg:col-span-1">
               <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
                 <FiUsers className="text-slate-400" /> Guests
               </label>
@@ -92,7 +93,7 @@ export default function Home() {
             </div>
 
             {/* Search Submit button */}
-            <div className="flex items-end">
+            <div className="flex items-end lg:col-span-2">
               <button 
                 type="submit" 
                 className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-11 rounded-xl shadow-lg transition flex items-center justify-center gap-2 hover:-translate-y-0.5 active:translate-y-0"
