@@ -9,6 +9,7 @@ import ImageGallery from "../components/properties/ImageGallery";
 import ReviewCard from "../components/reviews/ReviewCard";
 import { notifyError } from "../components/ui/Toast";
 import { FiMapPin, FiMessageSquare } from "react-icons/fi";
+import { Skeleton, TextSkeleton } from "../components/ui/Skeleton";
 
 export default function PropertyDetail() {
   const { id } = useParams();
@@ -17,7 +18,28 @@ export default function PropertyDetail() {
   const { data: reviews } = useQuery({ queryKey: ["reviews", id], queryFn: () => getPropertyReviews(id) });
   const bookMutation = useMutation({ mutationFn: createBooking, onSuccess: (res) => navigate(`/bookings/confirm/${res.id}`), onError: (e) => notifyError(e.response?.data?.detail || "Booking failed") });
   
-  if (!property) return null;
+  if (!property) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mb-6 space-y-3">
+          <Skeleton className="h-10 w-1/2 md:w-1/3 rounded-lg" />
+          <Skeleton className="h-5 w-1/3 md:w-1/4 rounded-md" />
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-[65%_35%] gap-12">
+          <div className="space-y-10">
+            <Skeleton className="w-full aspect-[16/9] rounded-2xl" />
+            <div className="space-y-4">
+              <Skeleton className="h-8 w-1/4 rounded-lg" />
+              <TextSkeleton lines={4} className="h-5 w-full rounded-md" />
+            </div>
+          </div>
+          <div>
+            <Skeleton className="w-full h-96 rounded-2xl" />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
