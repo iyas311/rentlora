@@ -140,7 +140,7 @@ resource "aws_instance" "app_server" {
           proxy_pass http://admin-service:8004;
         }
         location /api/search/ai {
-          proxy_pass http://search-service:8005;
+          proxy_pass http://ai-search-service:8005;
         }
         location /uploads/ {
           proxy_pass http://property-service:8001;
@@ -192,8 +192,8 @@ resource "aws_instance" "app_server" {
           - JWT_SECRET=${var.jwt_secret}
         restart: always
 
-      search-service:
-        image: ${data.aws_caller_identity.current.account_id}.dkr.ecr.us-east-1.amazonaws.com/rentlora-${var.environment}-search-service:latest
+      ai-search-service:
+        image: ${data.aws_caller_identity.current.account_id}.dkr.ecr.us-east-1.amazonaws.com/rentlora-${var.environment}-ai-search-service:latest
         environment:
           - ENV=${var.environment}
           - DATABASE_URL=postgresql://${var.db_username}:${var.db_password}@${module.database.db_endpoint}/rentlora

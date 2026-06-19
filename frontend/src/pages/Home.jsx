@@ -12,7 +12,7 @@ export default function Home() {
   return (
     <div className="space-y-8">
       <section className="rounded-xl bg-[url('https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1400')] bg-cover bg-center p-10 text-white shadow-md">
-        <h1 className="text-4xl font-bold mb-6 drop-shadow-sm">Find your perfect rental</h1>
+        <h1 className="text-4xl font-black mb-6 drop-shadow-md">Discover Premium Vacation Stays Worldwide</h1>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-5 bg-white/10 backdrop-blur-md p-4 rounded-xl border border-white/20">
           <div>
             <label className="block text-xs font-semibold text-white uppercase tracking-wider mb-1">City</label>

@@ -6,7 +6,7 @@ locals {
     "property-service",
     "ai-service",
     "admin-service",
-    "search-service"
+    "ai-search-service"
   ]
 }
 

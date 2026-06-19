@@ -337,7 +337,7 @@ def run_agent_chat(message: str, history: list, token: str = None) -> dict:
                         # Execute the requested tool
                         if name == "search_properties":
                             res = _http_request(
-                                "http://search-service:8005/api/search/ai",
+                                "http://ai-search-service:8005/api/search/ai",
                                 method="POST",
                                 data={"query": args.get("query"), "limit": 4}
                             )

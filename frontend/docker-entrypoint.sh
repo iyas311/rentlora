@@ -51,7 +51,7 @@ http {
     }
 
     location /api/search/ai {
-      proxy_pass http://search-service:8005;
+      proxy_pass http://ai-search-service:8005;
     }
 
     location /uploads {

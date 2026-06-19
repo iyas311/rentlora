@@ -50,8 +50,7 @@ async def my_bookings(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if current_user.role != "guest":
-        raise HTTPException(status_code=403, detail="Only guests can access this endpoint")
+    # Allow any authenticated user to view bookings they created as a guest
     today = date.today()
     stmt = (
         select(Booking, Property)

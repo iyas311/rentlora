@@ -10,7 +10,7 @@ export default function AiAssistant() {
   const [messages, setMessages] = useState([
     {
       role: "assistant",
-      content: "Hello! I am Rentlora's AI Concierge. How can I help you today? You can search for properties, check your current bookings, or ask me to make a booking!",
+      content: "Welcome to Rentlora. I am your AI Concierge, here to assist with your travel needs. You can ask me to search for properties, check your active reservations, or coordinate a new booking.",
     },
   ]);
   const [input, setInput] = useState("");

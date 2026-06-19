@@ -82,7 +82,7 @@ export default function Browse() {
           </div>
           <div className="relative z-10">
             <h2 className="text-lg font-bold text-indigo-900 mb-3 flex items-center">
-              <FiZap className="mr-2 text-indigo-600" /> Natural Language AI Search
+              <FiZap className="mr-2 text-indigo-600 text-amber-500 fill-amber-500" /> AI-Powered Semantic Search
             </h2>
             <form onSubmit={handleAiSearch} className="flex gap-3">
               <div className="relative flex-1">
@@ -91,7 +91,7 @@ export default function Browse() {
                 </div>
                 <input
                   type="text"
-                  placeholder="e.g. A quiet beachfront villa for 4 people under $5000..."
+                  placeholder="Describe your ideal retreat (e.g., 'An exclusive beachfront villa with a private infinity pool' or 'A rustic mountain cabin')..."
                   value={aiQuery}
                   onChange={(e) => setAiQuery(e.target.value)}
                   className="w-full pl-11 pr-4 py-3 rounded-xl border border-indigo-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm outline-none transition"
@@ -100,9 +100,9 @@ export default function Browse() {
               <button 
                 type="submit" 
                 disabled={aiSearchMutation.isPending}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 px-6 rounded-xl transition shadow-md disabled:opacity-70 flex items-center"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-xl transition shadow-md disabled:opacity-70 flex items-center gap-1.5"
               >
-                {aiSearchMutation.isPending ? "Searching..." : "Ask AI"}
+                {aiSearchMutation.isPending ? "Searching..." : "Search"}
               </button>
             </form>
             

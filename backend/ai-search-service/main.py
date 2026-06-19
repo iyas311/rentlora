@@ -24,4 +24,4 @@ async def startup_event():
 
 @app.get("/health")
 async def health_check():
-    return {"status": "ok", "service": "search-service"}
+    return {"status": "ok", "service": "ai-search-service"}

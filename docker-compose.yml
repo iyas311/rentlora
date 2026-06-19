@@ -71,8 +71,8 @@ services:
       DATABASE_URL: postgresql+asyncpg://postgres:password@postgres:5432/rentlora
       JWT_SECRET: dev-secret
 
-  search-service:
-    build: ./backend/search-service
+  ai-search-service:
+    build: ./backend/ai-search-service
     ports:
       - "8005:8005"
     depends_on:
@@ -94,7 +94,7 @@ services:
       - booking-service
       - ai-service
       - admin-service
-      - search-service
+      - ai-search-service
 
 volumes:
   pgdata:
