@@ -1,0 +1,29 @@
+name: python-checks
+description: Lint (ruff) and test (pytest) a Python service. Shared by ci.yml and build.yml.
+
+inputs:
+  context:
+    description: Service directory (e.g. backend/property-service).
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
+    - name: ruff + pytest
+      shell: bash
+      working-directory: ${{ inputs.context }}
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install ruff pytest
+        echo "::group::ruff"
+        ruff check .            # discovers ../ruff.toml automatically
+        echo "::endgroup::"
+        echo "::group::pytest"
+        pytest -q
+        echo "::endgroup::"
