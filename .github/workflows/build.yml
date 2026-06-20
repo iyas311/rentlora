@@ -1,0 +1,123 @@
+# Build pipeline — CI + automatic dev deploy.
+#
+# Flow: push to main → (per service) ruff → pytest → docker build → Trivy gate → push to ECR
+#       → bump environments/dev/values.yaml imageTag in rentlora-helm
+#       → ArgoCD auto-syncs dev → verify rollout (via deploy.yml, target=dev).
+#
+# Required repo secrets:
+#   AWS_CI_ROLE_ARN    arn of the rentlora-eks-ci role (OIDC; no static keys)
+#   HELM_REPO_TOKEN    PAT with write access to rentlora/rentlora-helm
+#   SLACK_WEBHOOK_URL  Slack incoming webhook (optional; notifications skipped if unset)
+name: build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  id-token: write      # OIDC -> assume AWS role
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  build:
+    name: build ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { service: frontend,          context: frontend,                  python: "false" }
+          - { service: property-service,  context: backend/property-service,  python: "true"  }
+          - { service: booking-service,   context: backend/booking-service,   python: "true"  }
+          - { service: ai-service,        context: backend/ai-service,        python: "true"  }
+          - { service: admin-service,     context: backend/admin-service,     python: "true"  }
+          - { service: ai-search-service, context: backend/ai-search-service, python: "true"  }
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_CI_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Lint + test (Python services)
+        if: ${{ matrix.python == 'true' }}
+        uses: ./.github/actions/python-checks
+        with:
+          context: ${{ matrix.context }}
+
+      - name: Build, scan, push
+        uses: ./.github/actions/build-scan-push
+        with:
+          service: ${{ matrix.service }}
+          context: ${{ matrix.context }}
+          registry: ${{ steps.ecr.outputs.registry }}
+          image-tag: ${{ github.sha }}
+          push: "true"
+
+      - name: Notify on failure
+        if: failure()
+        uses: ./.github/actions/notify
+        with:
+          status: failure
+          title: "build failed: ${{ matrix.service }}"
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          details: "commit ${{ github.sha }}"
+
+  bump-dev:
+    name: bump dev image tag
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4          # rentlora — for the local notify action
+
+      - name: Checkout rentlora-helm
+        uses: actions/checkout@v4
+        with:
+          repository: rentlora/rentlora-helm
+          token: ${{ secrets.HELM_REPO_TOKEN }}
+          path: helm
+
+      - name: Bump environments/dev/values.yaml
+        shell: bash
+        env:
+          TAG: ${{ github.sha }}
+        run: |
+          cd helm
+          sed -i -E "s/(imageTag:[[:space:]]*)[^[:space:]#]+/\1${TAG}/" environments/dev/values.yaml
+          git config user.name  "rentlora-ci"
+          git config user.email "ci@rentlora.in"
+          git add environments/dev/values.yaml
+          git commit -m "ci: dev imageTag -> ${TAG}" || { echo "no change to commit"; exit 0; }
+          git push
+
+      - name: Notify on failure
+        if: failure()
+        uses: ./.github/actions/notify
+        with:
+          status: failure
+          title: "dev tag bump failed"
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          details: "commit ${{ github.sha }}"
+
+  deploy-dev:
+    name: verify dev rollout
+    needs: bump-dev
+    uses: ./.github/workflows/deploy.yml
+    with:
+      target: dev
+      image-tag: ${{ github.sha }}
+    secrets: inherit

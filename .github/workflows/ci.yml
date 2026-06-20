@@ -1,0 +1,112 @@
+# PR checks — run on every pull request to main and block the merge until green.
+# Verify only: lint, test, SAST (SonarCloud), SCA (Snyk), and image build + Trivy.
+# No image is pushed and nothing is deployed here — build.yml handles release on merge.
+#
+# Required repo secrets: SONAR_TOKEN, SNYK_TOKEN.
+name: ci
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-test:
+    name: lint+test ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { service: property-service,  context: backend/property-service }
+          - { service: booking-service,   context: backend/booking-service }
+          - { service: ai-service,        context: backend/ai-service }
+          - { service: admin-service,     context: backend/admin-service }
+          - { service: ai-search-service, context: backend/ai-search-service }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/python-checks
+        with:
+          context: ${{ matrix.context }}
+
+  image-scan:
+    name: build+scan ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { service: frontend,          context: frontend }
+          - { service: property-service,  context: backend/property-service }
+          - { service: booking-service,   context: backend/booking-service }
+          - { service: ai-service,        context: backend/ai-service }
+          - { service: admin-service,     context: backend/admin-service }
+          - { service: ai-search-service, context: backend/ai-search-service }
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build + Trivy scan (no push)
+        uses: ./.github/actions/build-scan-push
+        with:
+          service: ${{ matrix.service }}
+          context: ${{ matrix.context }}
+          registry: local          # PR build only — image is scanned, never pushed
+          image-tag: ${{ github.sha }}
+          push: "false"
+
+  sonarcloud:
+    name: SAST (SonarCloud)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0           # full history for accurate new-code analysis
+      - name: SonarCloud scan
+        uses: SonarSource/sonarqube-scan-action@v4
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  snyk:
+    name: SCA (Snyk)
+    runs-on: ubuntu-latest
+    env:
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}   # snyk CLI reads this; no `snyk auth` (avoids log leak)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install Snyk
+        run: npm install -g snyk
+      - name: Snyk — frontend (npm)
+        working-directory: frontend
+        run: |
+          npm ci
+          snyk test --severity-threshold=high
+      - name: Snyk — backend (pip)
+        run: |
+          for svc in property-service booking-service ai-service admin-service ai-search-service; do
+            echo "::group::snyk $svc"
+            snyk test --file=backend/$svc/requirements.txt --package-manager=pip --severity-threshold=high
+            echo "::endgroup::"
+          done
+
+  # Single aggregator so branch protection can require one context ("ci-complete")
+  # instead of every matrix leg. Fails if any required job failed or was cancelled.
+  ci-complete:
+    name: ci-complete
+    if: always()
+    needs: [lint-test, image-scan, sonarcloud, snyk]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Gate on upstream results
+        run: |
+          if ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}; then
+            echo "One or more CI checks did not pass."; exit 1
+          fi
+          echo "All CI checks passed."

@@ -1,197 +1,154 @@
-name: Build and Deploy Rentlora
+# Deploy pipeline — verify a GitOps rollout and run smoke tests.
+#
+# Two ways in:
+#   - Called by build.yml (workflow_call) with target=dev after the dev tag bump.
+#   - Manually (workflow_dispatch) to promote a tested tag to production.
+#
+# Dev vs prod gating is done with GitHub Environments:
+#   - 'dev'        : no protection  -> runs automatically from build.yml
+#   - 'production' : required reviewers -> manual approval before the job runs
+#     (configure under repo Settings → Environments → production)
+#
+# The actual sync to the cluster is done by ArgoCD (it watches rentlora-helm).
+# This workflow optionally bumps the tag, then waits for ArgoCD and verifies.
+name: deploy
 
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Environment to deploy
+        type: choice
+        options: [dev, production]
+        default: dev
+      image-tag:
+        description: "Image tag (git SHA) to deploy. Leave blank to just verify current state."
+        required: false
+        default: ""
+  workflow_call:
+    inputs:
+      target:
+        type: string
+        required: true
+      image-tag:
+        type: string
+        required: false
+        default: ""
+
+permissions:
+  id-token: write
+  contents: read
 
 env:
   AWS_REGION: us-east-1
-  AWS_ACCOUNT_ID: "280646578520"
-  PROJECT: rentlora-test
+  CLUSTER: rentlora-eks
 
 jobs:
-  build-and-push:
-    name: Build Docker Images and Push to ECR
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: Checkout Source Code
-        uses: actions/checkout@v4
-
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Build and Push Booking Service
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: ${{ env.PROJECT }}-booking-service
-          IMAGE_TAG: latest
-        run: |
-          cd backend/booking-service
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-          
-      - name: Scan Booking Service Image with Trivy
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: ${{ steps.login-ecr.outputs.registry }}/${{ env.PROJECT }}-booking-service:latest
-          format: 'table'
-          exit-code: '0' # Set to 1 if you want the pipeline to fail on CRITICAL vulnerabilities
-          ignore-unfixed: true
-          vuln-type: 'os,library'
-          severity: 'CRITICAL,HIGH'
-
-      - name: Push Booking Service
-        run: docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.PROJECT }}-booking-service:latest
-
-      - name: Build and Push Property Service
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: ${{ env.PROJECT }}-property-service
-          IMAGE_TAG: latest
-        run: |
-          cd backend/property-service
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-
-      - name: Scan Property Service Image with Trivy
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: ${{ steps.login-ecr.outputs.registry }}/${{ env.PROJECT }}-property-service:latest
-          format: 'table'
-          exit-code: '0'
-          severity: 'CRITICAL,HIGH'
-
-      - name: Push Property Service
-        run: docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.PROJECT }}-property-service:latest
-
-      - name: Build and Push AI Service
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: ${{ env.PROJECT }}-ai-service
-          IMAGE_TAG: latest
-        run: |
-          cd backend/ai-service
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-
-      - name: Scan AI Service Image with Trivy
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: ${{ steps.login-ecr.outputs.registry }}/${{ env.PROJECT }}-ai-service:latest
-          format: 'table'
-          exit-code: '0'
-          severity: 'CRITICAL,HIGH'
-
-      - name: Build and Push Admin Service
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: ${{ env.PROJECT }}-admin-service
-          IMAGE_TAG: latest
-        run: |
-          cd backend/admin-service
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-
-      - name: Scan Admin Service Image with Trivy
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: ${{ steps.login-ecr.outputs.registry }}/${{ env.PROJECT }}-admin-service:latest
-          format: 'table'
-          exit-code: '0'
-          severity: 'CRITICAL,HIGH'
-
-      - name: Push Admin Service
-        run: docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.PROJECT }}-admin-service:latest
-
-      - name: Build and Push Search Service
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: ${{ env.PROJECT }}-search-service
-          IMAGE_TAG: latest
-        run: |
-          cd backend/search-service
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-
-      - name: Scan Search Service Image with Trivy
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: ${{ steps.login-ecr.outputs.registry }}/${{ env.PROJECT }}-search-service:latest
-          format: 'table'
-          exit-code: '0'
-          severity: 'CRITICAL,HIGH'
-
-      - name: Push Search Service
-        run: docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.PROJECT }}-search-service:latest
-
-      - name: Build and Push Frontend
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: ${{ env.PROJECT }}-frontend
-          IMAGE_TAG: latest
-        run: |
-          cd frontend
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-
-      - name: Scan Frontend Image with Trivy
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: ${{ steps.login-ecr.outputs.registry }}/${{ env.PROJECT }}-frontend:latest
-          format: 'table'
-          exit-code: '0'
-          severity: 'CRITICAL,HIGH'
-
-      - name: Push Frontend
-        run: docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.PROJECT }}-frontend:latest
-
   deploy:
-    name: Trigger EC2 Deployment
-    needs: build-and-push
+    name: deploy ${{ inputs.target }}
     runs-on: ubuntu-latest
-    
+    # 'production' triggers the approval gate; everything else uses the open 'dev' env.
+    environment: ${{ inputs.target == 'production' && 'production' || 'dev' }}
     steps:
-      - name: Configure AWS Credentials
+      - uses: actions/checkout@v4          # rentlora — for the local notify action
+
+      - name: Resolve environment config
+        id: cfg
+        shell: bash
+        run: |
+          if [ "${{ inputs.target }}" = "production" ]; then
+            echo "ns=production"      >> "$GITHUB_OUTPUT"
+            echo "host=rentlora.in"   >> "$GITHUB_OUTPUT"
+            echo "envdir=prod"        >> "$GITHUB_OUTPUT"
+          else
+            echo "ns=rentlora-dev"        >> "$GITHUB_OUTPUT"
+            echo "host=dev.rentlora.in"   >> "$GITHUB_OUTPUT"
+            echo "envdir=dev"             >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout rentlora-helm (for tag bump)
+        if: ${{ inputs.image-tag != '' }}
+        uses: actions/checkout@v4
+        with:
+          repository: rentlora/rentlora-helm
+          token: ${{ secrets.HELM_REPO_TOKEN }}
+          path: helm
+
+      - name: Bump image tag in helm
+        if: ${{ inputs.image-tag != '' }}
+        shell: bash
+        env:
+          TAG: ${{ inputs.image-tag }}
+          ENVDIR: ${{ steps.cfg.outputs.envdir }}
+        run: |
+          cd helm
+          sed -i -E "s/(imageTag:[[:space:]]*)[^[:space:]#]+/\1${TAG}/" "environments/${ENVDIR}/values.yaml"
+          git config user.name  "rentlora-ci"
+          git config user.email "ci@rentlora.in"
+          git add "environments/${ENVDIR}/values.yaml"
+          git commit -m "ci: ${ENVDIR} imageTag -> ${TAG}" || echo "no change to commit"
+          git push || echo "nothing to push"
+
+      - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ secrets.AWS_CI_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Deploy to Backend Servers
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --name "$CLUSTER" --region "$AWS_REGION"
+
+      - name: Wait for ArgoCD sync + verify rollout
+        shell: bash
+        env:
+          NS: ${{ steps.cfg.outputs.ns }}
+          TAG: ${{ inputs.image-tag }}
         run: |
-          # Find all running Backend instances in the Auto-Scaling Group
-          INSTANCE_IDS=$(aws autoscaling describe-auto-scaling-groups --auto-scaling-group-names rentlora-dev-backend-asg --query "AutoScalingGroups[0].Instances[?LifecycleState=='InService'].InstanceId" --output text)
-          
-          if [ -z "$INSTANCE_IDS" ]; then
-            echo "No healthy backend instances found!"
-            exit 0
+          set -euo pipefail
+          services="frontend property-service booking-service ai-service admin-service ai-search-service"
+          # If a tag was provided, wait until each Deployment references it before
+          # checking rollout (ArgoCD can lag the git commit by a reconcile cycle).
+          if [ -n "${TAG}" ]; then
+            for d in $services; do
+              echo "Waiting for $d to reference :${TAG} ..."
+              ok=""
+              for _ in $(seq 1 30); do
+                img=$(kubectl get deploy "$d" -n "$NS" -o jsonpath='{.spec.template.spec.containers[0].image}' 2>/dev/null || echo "")
+                case "$img" in
+                  *":${TAG}") echo "  $d -> $img"; ok=1; break ;;
+                  *) sleep 10 ;;
+                esac
+              done
+              [ -n "$ok" ] || { echo "Timed out waiting for $d to update to :${TAG}"; exit 1; }
+            done
           fi
+          for d in $services; do
+            kubectl rollout status "deploy/$d" -n "$NS" --timeout=180s
+          done
 
-          echo "Deploying to Backend Instances: $INSTANCE_IDS"
-          aws ssm send-command \
-            --instance-ids $INSTANCE_IDS \
-            --document-name "AWS-RunShellScript" \
-            --parameters 'commands=["cd /home/ubuntu/rentlora/backend", "docker compose pull", "docker compose up -d"]' \
-            --comment "Deploy latest ECR images"
-
-      - name: Deploy to Frontend Servers
+      - name: Smoke test
+        shell: bash
+        env:
+          HOST: ${{ steps.cfg.outputs.host }}
         run: |
-          # Find all running Frontend instances in the Auto-Scaling Group
-          INSTANCE_IDS=$(aws autoscaling describe-auto-scaling-groups --auto-scaling-group-names rentlora-dev-frontend-asg --query "AutoScalingGroups[0].Instances[?LifecycleState=='InService'].InstanceId" --output text)
-          
-          if [ -z "$INSTANCE_IDS" ]; then
-            echo "No healthy frontend instances found!"
-            exit 0
-          fi
+          set -e
+          curl -fsS --retry 5 --retry-delay 10 "https://${HOST}/healthz"        >/dev/null && echo "frontend ok"
+          curl -fsS --retry 5 --retry-delay 10 "https://${HOST}/api/properties" >/dev/null && echo "property-service ok"
 
-          echo "Deploying to Frontend Instances: $INSTANCE_IDS"
-          aws ssm send-command \
-            --instance-ids $INSTANCE_IDS \
-            --document-name "AWS-RunShellScript" \
-            --parameters 'commands=["cd /home/ubuntu/rentlora/frontend", "docker compose pull", "docker compose up -d"]' \
-            --comment "Deploy latest ECR frontend image"
+      - name: Notify success
+        if: success()
+        uses: ./.github/actions/notify
+        with:
+          status: success
+          title: "deploy ${{ inputs.target }} succeeded"
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          details: "tag ${{ inputs.image-tag }} → ns ${{ steps.cfg.outputs.ns }}"
+
+      - name: Notify failure
+        if: failure()
+        uses: ./.github/actions/notify
+        with:
+          status: failure
+          title: "deploy ${{ inputs.target }} failed"
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          details: "tag ${{ inputs.image-tag }} → ns ${{ steps.cfg.outputs.ns }}"

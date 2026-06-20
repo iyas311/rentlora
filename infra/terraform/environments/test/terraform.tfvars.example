@@ -1,6 +1,0 @@
-# Example tfvars for the test environment
-# Copy this to terraform.tfvars and fill in the values
-
-db_username = "postgres"
-db_password = "supersecretpassword123"
-jwt_secret  = "some_random_jwt_secret_for_testing"

@@ -1,0 +1,48 @@
+name: build-scan-push
+description: >
+  Build the multistage image, scan it with Trivy (gate on HIGH/CRITICAL), and
+  optionally push to ECR. Lint/test live in the python-checks composite; run that
+  first for backend services. Assumes the job has logged in to ECR when push=true.
+
+inputs:
+  service:
+    description: Service name; also the ECR repo suffix (e.g. property-service).
+    required: true
+  context:
+    description: Docker build context path (e.g. backend/property-service or frontend).
+    required: true
+  registry:
+    description: ECR registry host, e.g. <account>.dkr.ecr.us-east-1.amazonaws.com.
+    required: true
+  image-tag:
+    description: Image tag to build (the git SHA).
+    required: true
+  push:
+    description: "'true' to push after a clean scan (main); 'false' for PR builds."
+    required: false
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - name: Build image (multistage)
+      shell: bash
+      run: |
+        docker build \
+          -t "${{ inputs.registry }}/rentlora-${{ inputs.service }}:${{ inputs.image-tag }}" \
+          "${{ inputs.context }}"
+
+    - name: Trivy scan — fail on HIGH/CRITICAL
+      uses: aquasecurity/trivy-action@0.24.0
+      with:
+        image-ref: "${{ inputs.registry }}/rentlora-${{ inputs.service }}:${{ inputs.image-tag }}"
+        format: table
+        severity: HIGH,CRITICAL
+        exit-code: "1"
+        ignore-unfixed: true
+        vuln-type: os,library
+
+    - name: Push to ECR
+      if: ${{ inputs.push == 'true' }}
+      shell: bash
+      run: docker push "${{ inputs.registry }}/rentlora-${{ inputs.service }}:${{ inputs.image-tag }}"
