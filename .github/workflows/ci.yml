@@ -101,7 +101,7 @@ jobs:
         with:
           fetch-depth: 0           # full history for accurate new-code analysis
       - name: SonarCloud scan
-        uses: SonarSource/sonarqube-scan-action@v4
+        uses: SonarSource/sonarqube-scan-action@v6
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
