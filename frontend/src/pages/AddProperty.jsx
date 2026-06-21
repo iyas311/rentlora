@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { createProperty, generatePropertyDescription, uploadPropertyImages } from "../api/properties";
-import Button from "../components/ui/Button";
-import Input from "../components/ui/Input";
 import { notifyError, notifySuccess } from "../components/ui/Toast";
+import { FiHome, FiMapPin, FiGlobe, FiFileText, FiDollarSign, FiUsers, FiEdit3, FiArrowRight, FiArrowLeft, FiImage, FiList } from "react-icons/fi";
 
 export default function AddProperty() {
   const [step, setStep] = useState(1);
@@ -50,129 +49,278 @@ export default function AddProperty() {
     } catch (error) {
       notifyError(error);
     }
-  };  return (
-    <div className="mx-auto max-w-3xl rounded-lg bg-white p-6 shadow">
-      <div className="mb-6 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-primary">Add Property</h1>
-          <p className="text-sm text-muted">Step {step} of 3</p>
-        </div>
-        {step === 1 && (
-          <Button type="button" variant="secondary" onClick={generateDescription} disabled={isGenerating}>
-            {isGenerating ? "Generating..." : "Generate with AI"}
-          </Button>
-        )}
-      </div>
+  };
 
-      {step === 1 && (
-        <div className="space-y-4">
+  return (
+    <div className="min-h-[85vh] px-4 py-8 max-w-4xl mx-auto">
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-xl overflow-hidden border-t-4 border-indigo-600 transition-all">
+        
+        {/* Header */}
+        <div className="p-8 border-b border-slate-50 bg-slate-50/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">Property Title</label>
-            <Input placeholder="Enter a descriptive title for your property" value={form.title} onChange={(e) => setField("title", e.target.value)} />
+            <h2 className="text-2xl font-black tracking-tight text-slate-900">Add New Property</h2>
+            <p className="text-slate-500 mt-2 text-sm font-medium">Step {step} of 3 - Provide property details.</p>
           </div>
-          
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">City</label>
-              <Input placeholder="e.g. Paris" value={form.city} onChange={(e) => setField("city", e.target.value)} />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Country</label>
-              <Input placeholder="e.g. France" value={form.country} onChange={(e) => setField("country", e.target.value)} />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">Location Details</label>
-            <Input placeholder="e.g. 14 Avenue Montaigne" value={form.location} onChange={(e) => setField("location", e.target.value)} />
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">Property Type</label>
-            <select
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:ring-2 focus:ring-accent text-gray-900 bg-white"
-              value={form.property_type}
-              onChange={(e) => setField("property_type", e.target.value)}
+          {step === 1 && (
+            <button 
+              type="button" 
+              onClick={generateDescription} 
+              disabled={isGenerating}
+              className="bg-indigo-50 text-indigo-600 hover:bg-indigo-100 font-bold py-2.5 px-5 rounded-xl transition flex items-center justify-center gap-2 text-sm disabled:opacity-50"
             >
-              <option value="apartment">Apartment</option>
-              <option value="house">House</option>
-              <option value="villa">Villa</option>
-              <option value="studio">Studio</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">Property Description</label>
-            <textarea
-              className="min-h-40 w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:ring-2 focus:ring-accent text-gray-900 bg-white placeholder-gray-400"
-              placeholder="Describe your property details, views, space, etc."
-              value={form.description}
-              onChange={(e) => setField("description", e.target.value)}
-            />
-          </div>
+              <FiEdit3 size={18} />
+              {isGenerating ? "Generating..." : "Generate with AI"}
+            </button>
+          )}
         </div>
-      )}
 
-      {step === 2 && (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">Price per Night (USD)</label>
-            <Input type="number" min={1} placeholder="e.g. 150" value={form.price_per_night} onChange={(e) => setField("price_per_night", Number(e.target.value))} />
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">Max Guests</label>
-            <Input type="number" min={1} placeholder="e.g. 4" value={form.max_guests} onChange={(e) => setField("max_guests", Number(e.target.value))} />
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">Bedrooms</label>
-            <Input type="number" min={1} placeholder="e.g. 2" value={form.bedrooms} onChange={(e) => setField("bedrooms", Number(e.target.value))} />
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">Bathrooms</label>
-            <Input type="number" min={1} placeholder="e.g. 1" value={form.bathrooms} onChange={(e) => setField("bathrooms", Number(e.target.value))} />
-          </div>
-          <div className="md:col-span-2">
-            <label className="block text-sm font-semibold text-gray-700 mb-1">Amenities</label>
-            <Input placeholder="Wifi, Pool, Kitchen, Hot Tub, etc. (comma separated)" value={amenitiesText} onChange={(e) => setAmenitiesText(e.target.value)} />
-          </div>
+        {/* Body */}
+        <div className="p-8">
+          {step === 1 && (
+            <div className="space-y-6">
+              {/* Title */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Property Title</label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <FiHome size={18} />
+                  </span>
+                  <input 
+                    placeholder="Enter a descriptive title for your property" 
+                    value={form.title} 
+                    onChange={(e) => setField("title", e.target.value)} 
+                    className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none text-sm font-medium transition"
+                  />
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">City</label>
+                  <div className="relative">
+                    <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                      <FiMapPin size={18} />
+                    </span>
+                    <input 
+                      placeholder="e.g. Paris" 
+                      value={form.city} 
+                      onChange={(e) => setField("city", e.target.value)} 
+                      className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none text-sm font-medium transition"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Country</label>
+                  <div className="relative">
+                    <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                      <FiGlobe size={18} />
+                    </span>
+                    <input 
+                      placeholder="e.g. France" 
+                      value={form.country} 
+                      onChange={(e) => setField("country", e.target.value)} 
+                      className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none text-sm font-medium transition"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Location Details</label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <FiMapPin size={18} />
+                  </span>
+                  <input 
+                    placeholder="e.g. 14 Avenue Montaigne" 
+                    value={form.location} 
+                    onChange={(e) => setField("location", e.target.value)} 
+                    className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none text-sm font-medium transition"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Property Type</label>
+                <select
+                  className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 text-sm font-medium transition bg-white"
+                  value={form.property_type}
+                  onChange={(e) => setField("property_type", e.target.value)}
+                >
+                  <option value="apartment">Apartment</option>
+                  <option value="house">House</option>
+                  <option value="villa">Villa</option>
+                  <option value="studio">Studio</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Property Description</label>
+                <div className="relative">
+                  <span className="absolute top-3 left-0 pl-3.5 flex items-start pointer-events-none text-slate-400">
+                    <FiFileText size={18} />
+                  </span>
+                  <textarea
+                    className="min-h-40 w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none text-sm font-medium transition placeholder-slate-400 resize-y"
+                    placeholder="Describe your property details, views, space, etc."
+                    value={form.description}
+                    onChange={(e) => setField("description", e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {step === 2 && (
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Price per Night (USD)</label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <FiDollarSign size={18} />
+                  </span>
+                  <input 
+                    type="number" 
+                    min={1} 
+                    placeholder="e.g. 150" 
+                    value={form.price_per_night} 
+                    onChange={(e) => setField("price_per_night", Number(e.target.value))} 
+                    className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none text-sm font-medium transition"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Max Guests</label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <FiUsers size={18} />
+                  </span>
+                  <input 
+                    type="number" 
+                    min={1} 
+                    placeholder="e.g. 4" 
+                    value={form.max_guests} 
+                    onChange={(e) => setField("max_guests", Number(e.target.value))} 
+                    className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none text-sm font-medium transition"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Bedrooms</label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <FiHome size={18} />
+                  </span>
+                  <input 
+                    type="number" 
+                    min={1} 
+                    placeholder="e.g. 2" 
+                    value={form.bedrooms} 
+                    onChange={(e) => setField("bedrooms", Number(e.target.value))} 
+                    className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none text-sm font-medium transition"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Bathrooms</label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <FiHome size={18} />
+                  </span>
+                  <input 
+                    type="number" 
+                    min={1} 
+                    placeholder="e.g. 1" 
+                    value={form.bathrooms} 
+                    onChange={(e) => setField("bathrooms", Number(e.target.value))} 
+                    className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none text-sm font-medium transition"
+                  />
+                </div>
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Amenities</label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <FiList size={18} />
+                  </span>
+                  <input 
+                    placeholder="Wifi, Pool, Kitchen, Hot Tub, etc. (comma separated)" 
+                    value={amenitiesText} 
+                    onChange={(e) => setAmenitiesText(e.target.value)} 
+                    className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none text-sm font-medium transition"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {step === 3 && (
+            <div className="space-y-6">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Upload Property Images</label>
+                <div className="mt-2 flex justify-center rounded-2xl border border-dashed border-slate-300 px-6 py-10 hover:border-indigo-500 transition-colors bg-slate-50/50">
+                  <div className="text-center">
+                    <FiImage className="mx-auto h-12 w-12 text-slate-300" aria-hidden="true" />
+                    <div className="mt-4 flex text-sm leading-6 text-slate-600 justify-center">
+                      <label
+                        htmlFor="file-upload"
+                        className="relative cursor-pointer rounded-md bg-transparent font-semibold text-indigo-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-indigo-600 focus-within:ring-offset-2 hover:text-indigo-500"
+                      >
+                        <span>Upload files</span>
+                        <input id="file-upload" name="file-upload" type="file" className="sr-only" multiple accept="image/*" onChange={(e) => setImages(Array.from(e.target.files || []))} />
+                      </label>
+                      <p className="pl-1">or drag and drop</p>
+                    </div>
+                    <p className="text-xs leading-5 text-slate-500 mt-2">PNG, JPG, GIF up to 10MB</p>
+                  </div>
+                </div>
+                {images.length > 0 && (
+                  <div className="mt-4 p-4 bg-indigo-50/50 rounded-xl border border-indigo-100">
+                    <p className="text-sm font-semibold text-indigo-700">
+                      {images.length} image(s) selected
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
-      )}
 
-      {step === 3 && (
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Upload Property Images</label>
-            <input
-              type="file"
-              multiple
-              accept="image/*"
-              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-secondary file:text-primary hover:file:bg-gray-200 cursor-pointer"
-              onChange={(e) => setImages(Array.from(e.target.files || []))}
-            />
-            <p className="text-sm text-muted mt-2">
-              {images.length ? `${images.length} image(s) selected` : "Upload up to 5 images"}
-            </p>
-          </div>
+        {/* Footer Navigation */}
+        <div className="p-8 border-t border-slate-50 bg-slate-50/30 flex justify-between items-center">
+          {step > 1 ? (
+            <button 
+              type="button" 
+              onClick={() => setStep(step - 1)}
+              className="px-6 py-3 rounded-xl border border-slate-200 text-slate-600 font-semibold hover:bg-slate-50 transition flex items-center gap-2"
+            >
+              <FiArrowLeft size={18} />
+              Back
+            </button>
+          ) : (
+            <div />
+          )}
+          {step < 3 ? (
+            <button 
+              type="button" 
+              onClick={() => setStep(step + 1)}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-xl shadow-lg shadow-indigo-100 transition-all flex items-center gap-2 hover:-translate-y-0.5 active:translate-y-0"
+            >
+              Next Step
+              <FiArrowRight size={18} />
+            </button>
+          ) : (
+            <button 
+              type="button" 
+              onClick={submit}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-xl shadow-lg shadow-indigo-100 transition-all flex items-center gap-2 hover:-translate-y-0.5 active:translate-y-0"
+            >
+              Submit Property
+              <FiArrowRight size={18} />
+            </button>
+          )}
         </div>
-      )}
 
-      <div className="mt-6 flex justify-between">
-        {step > 1 ? (
-          <Button type="button" variant="secondary" onClick={() => setStep(step - 1)}>
-            Back
-          </Button>
-        ) : (
-          <span />
-        )}
-        {step < 3 ? (
-          <Button type="button" onClick={() => setStep(step + 1)}>
-            Next
-          </Button>
-        ) : (
-          <Button type="button" onClick={submit}>
-            Submit
-          </Button>
-        )}
       </div>
     </div>
   );
