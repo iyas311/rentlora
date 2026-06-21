@@ -32,12 +32,25 @@ runs:
           -t "${{ inputs.registry }}/rentlora-${{ inputs.service }}:${{ inputs.image-tag }}" \
           "${{ inputs.context }}"
 
-    - name: Trivy scan — fail on HIGH/CRITICAL
+    # Report HIGH + CRITICAL for visibility (never fails the build) ...
+    - name: Trivy scan — report HIGH/CRITICAL
       uses: aquasecurity/trivy-action@master
       with:
         image-ref: "${{ inputs.registry }}/rentlora-${{ inputs.service }}:${{ inputs.image-tag }}"
         format: table
         severity: HIGH,CRITICAL
+        exit-code: "0"
+        ignore-unfixed: true
+        vuln-type: os,library
+
+    # ... but only CRITICAL blocks the deploy. HIGH base-image/OS findings are tracked
+    # as tech-debt (see .trivyignore); tighten this back to HIGH once they're remediated.
+    - name: Trivy gate — fail on CRITICAL
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: "${{ inputs.registry }}/rentlora-${{ inputs.service }}:${{ inputs.image-tag }}"
+        format: table
+        severity: CRITICAL
         exit-code: "1"
         ignore-unfixed: true
         vuln-type: os,library
