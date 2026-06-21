@@ -106,6 +106,7 @@ jobs:
 
   snyk:
     name: SCA (Snyk)
+    needs: changes
     runs-on: ubuntu-latest
     env:
       SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}   # snyk CLI reads this; no `snyk auth` (avoids log leak)
@@ -114,18 +115,34 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
       - name: Install Snyk
         run: npm install -g snyk
+
+      # Only scan deps of services that actually changed in this PR.
       - name: Snyk — frontend (npm)
+        if: ${{ contains(needs.changes.outputs.services, 'frontend') }}
         working-directory: frontend
         run: |
           npm ci
           snyk test --severity-threshold=high
+
+      # Snyk's pip scanner needs the packages installed to resolve the tree
+      # (else SNYK-OS-PYTHON-0013 "Missing required packages" / HTTP 422), so install
+      # each changed service's requirements into a fresh venv before testing it.
       - name: Snyk — backend (pip)
+        if: ${{ needs.changes.outputs.backends != '[]' }}
         run: |
-          for svc in property-service booking-service ai-service admin-service ai-search-service; do
+          for svc in $(echo '${{ needs.changes.outputs.backends }}' | jq -r '.[]'); do
             echo "::group::snyk $svc"
-            snyk test --file=backend/$svc/requirements.txt --package-manager=pip --severity-threshold=high
+            python -m venv /tmp/venv
+            . /tmp/venv/bin/activate
+            pip install --quiet --disable-pip-version-check -r "backend/$svc/requirements.txt"
+            snyk test --file="backend/$svc/requirements.txt" --package-manager=pip --severity-threshold=high
+            deactivate
+            rm -rf /tmp/venv
             echo "::endgroup::"
           done
 
