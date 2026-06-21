@@ -33,7 +33,7 @@ runs:
           "${{ inputs.context }}"
 
     - name: Trivy scan — fail on HIGH/CRITICAL
-      uses: aquasecurity/trivy-action@0.24.0
+      uses: aquasecurity/trivy-action@master
       with:
         image-ref: "${{ inputs.registry }}/rentlora-${{ inputs.service }}:${{ inputs.image-tag }}"
         format: table
