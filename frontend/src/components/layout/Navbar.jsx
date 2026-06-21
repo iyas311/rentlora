@@ -40,6 +40,9 @@ export default function Navbar() {
   return (
     <nav className="sticky top-0 z-40 bg-white border-b border-gray-100 shadow-sm backdrop-blur-md bg-white/95">
       <div className="container-app flex h-16 items-center justify-between">
+        {/* Left cluster: brand + primary nav grouped so the links sit beside the
+            logo instead of floating in the dead center of the header. */}
+        <div className="flex items-center gap-10">
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2 group">
           <svg className="h-6 w-6 text-indigo-600 group-hover:scale-110 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -90,6 +93,7 @@ export default function Navbar() {
               Admin Dashboard
             </Link>
           )}
+        </div>
         </div>
 
         {/* Right Action Menu */}
