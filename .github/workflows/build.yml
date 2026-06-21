@@ -50,13 +50,14 @@ jobs:
             ai-service: ['backend/ai-service/**']
             admin-service: ['backend/admin-service/**']
             ai-search-service: ['backend/ai-search-service/**']
+            user-service: ['backend/user-service/**']
       - name: Resolve service list
         id: set
         shell: bash
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             # Manual run rebuilds everything.
-            echo 'services=["frontend","property-service","booking-service","ai-service","admin-service","ai-search-service"]' >> "$GITHUB_OUTPUT"
+            echo 'services=["frontend","property-service","booking-service","ai-service","admin-service","ai-search-service","user-service"]' >> "$GITHUB_OUTPUT"
           else
             echo 'services=${{ steps.filter.outputs.changes }}' >> "$GITHUB_OUTPUT"
           fi

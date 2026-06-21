@@ -36,6 +36,7 @@ jobs:
             ai-service: ['backend/ai-service/**']
             admin-service: ['backend/admin-service/**']
             ai-search-service: ['backend/ai-search-service/**']
+            user-service: ['backend/user-service/**']
       - name: Resolve service lists
         id: set
         shell: bash
