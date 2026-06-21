@@ -1,8 +1,12 @@
 # Build pipeline — CI + automatic dev deploy.
 #
-# Flow: push to main → (per service) ruff → pytest → docker build → Trivy gate → push to ECR
-#       → bump environments/dev/values.yaml imageTag in rentlora-helm
-#       → ArgoCD auto-syncs dev → verify rollout (via deploy.yml, target=dev).
+# Flow: push to main → detect which services changed → (only those) ruff → pytest →
+#       docker build → Trivy gate → push to ECR → bump that service's tag in
+#       environments/dev/values.yaml (per-service) → ArgoCD auto-syncs dev →
+#       verify rollout (via deploy.yml, target=dev).
+#
+# A one-service change rebuilds + redeploys only that service. workflow_dispatch
+# (manual) rebuilds all six.
 #
 # Required repo secrets:
 #   AWS_CI_ROLE_ARN    arn of the rentlora-eks-ci role (OIDC; no static keys)
@@ -28,21 +32,59 @@ env:
   AWS_REGION: us-east-1
 
 jobs:
+  # Which services changed? Outputs a JSON array consumed as the build matrix.
+  changes:
+    name: detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      services: ${{ steps.set.outputs.services }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            frontend: ['frontend/**']
+            property-service: ['backend/property-service/**']
+            booking-service: ['backend/booking-service/**']
+            ai-service: ['backend/ai-service/**']
+            admin-service: ['backend/admin-service/**']
+            ai-search-service: ['backend/ai-search-service/**']
+      - name: Resolve service list
+        id: set
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            # Manual run rebuilds everything.
+            echo 'services=["frontend","property-service","booking-service","ai-service","admin-service","ai-search-service"]' >> "$GITHUB_OUTPUT"
+          else
+            echo 'services=${{ steps.filter.outputs.changes }}' >> "$GITHUB_OUTPUT"
+          fi
+          echo "Changed services: ${{ steps.filter.outputs.changes }}"
+
   build:
     name: build ${{ matrix.service }}
+    needs: changes
+    if: ${{ needs.changes.outputs.services != '[]' }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - { service: frontend,          context: frontend,                  python: "false" }
-          - { service: property-service,  context: backend/property-service,  python: "true"  }
-          - { service: booking-service,   context: backend/booking-service,   python: "true"  }
-          - { service: ai-service,        context: backend/ai-service,        python: "true"  }
-          - { service: admin-service,     context: backend/admin-service,     python: "true"  }
-          - { service: ai-search-service, context: backend/ai-search-service, python: "true"  }
+        service: ${{ fromJson(needs.changes.outputs.services) }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Resolve context
+        id: ctx
+        shell: bash
+        run: |
+          if [ "${{ matrix.service }}" = "frontend" ]; then
+            echo "context=frontend" >> "$GITHUB_OUTPUT"
+            echo "python=false"     >> "$GITHUB_OUTPUT"
+          else
+            echo "context=backend/${{ matrix.service }}" >> "$GITHUB_OUTPUT"
+            echo "python=true"                            >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
@@ -55,16 +97,16 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Lint + test (Python services)
-        if: ${{ matrix.python == 'true' }}
+        if: ${{ steps.ctx.outputs.python == 'true' }}
         uses: ./.github/actions/python-checks
         with:
-          context: ${{ matrix.context }}
+          context: ${{ steps.ctx.outputs.context }}
 
       - name: Build, scan, push
         uses: ./.github/actions/build-scan-push
         with:
           service: ${{ matrix.service }}
-          context: ${{ matrix.context }}
+          context: ${{ steps.ctx.outputs.context }}
           registry: ${{ steps.ecr.outputs.registry }}
           image-tag: ${{ github.sha }}
           push: "true"
@@ -79,8 +121,8 @@ jobs:
           details: "commit ${{ github.sha }}"
 
   bump-dev:
-    name: bump dev image tag
-    needs: build
+    name: bump dev image tags
+    needs: [changes, build]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4          # rentlora — for the local notify action
@@ -92,17 +134,21 @@ jobs:
           token: ${{ secrets.HELM_REPO_TOKEN }}
           path: helm
 
-      - name: Bump environments/dev/values.yaml
+      - name: Bump changed services in dev imageTags
         shell: bash
         env:
           TAG: ${{ github.sha }}
+          SERVICES: ${{ needs.changes.outputs.services }}
         run: |
           cd helm
-          sed -i -E "s/(imageTag:[[:space:]]*)[^[:space:]#]+/\1${TAG}/" environments/dev/values.yaml
+          for svc in $(echo "$SERVICES" | jq -r '.[]'); do
+            yq -i ".imageTags.\"${svc}\" = \"${TAG}\"" environments/dev/values.yaml
+            echo "  bumped ${svc} -> ${TAG}"
+          done
           git config user.name  "rentlora-ci"
           git config user.email "ci@rentlora.in"
           git add environments/dev/values.yaml
-          git commit -m "ci: dev imageTag -> ${TAG}" || { echo "no change to commit"; exit 0; }
+          git commit -m "ci: dev bump ${SERVICES} -> ${TAG}" || { echo "no change to commit"; exit 0; }
           git push
 
       - name: Notify on failure
@@ -116,9 +162,10 @@ jobs:
 
   deploy-dev:
     name: verify dev rollout
-    needs: bump-dev
+    needs: [changes, bump-dev]
     uses: ./.github/workflows/deploy.yml
     with:
       target: dev
       image-tag: ${{ github.sha }}
+      services: ${{ needs.changes.outputs.services }}
     secrets: inherit

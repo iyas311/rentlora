@@ -25,6 +25,10 @@ on:
         description: "Image tag (git SHA) to deploy. Leave blank to just verify current state."
         required: false
         default: ""
+      services:
+        description: 'JSON array of services to verify, e.g. ["frontend"]. Default: all six.'
+        required: false
+        default: '["frontend","property-service","booking-service","ai-service","admin-service","ai-search-service"]'
   workflow_call:
     inputs:
       target:
@@ -34,6 +38,10 @@ on:
         type: string
         required: false
         default: ""
+      services:
+        type: string
+        required: false
+        default: '["frontend","property-service","booking-service","ai-service","admin-service","ai-search-service"]'
 
 permissions:
   id-token: write
@@ -66,27 +74,28 @@ jobs:
             echo "envdir=dev"             >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Checkout rentlora-helm (for tag bump)
-        if: ${{ inputs.image-tag != '' }}
+      # Prod promotion bumps the (global) imageTag for ALL prod services to a known SHA.
+      # Dev is NOT bumped here — build.yml's bump-dev already set the per-service tags.
+      - name: Checkout rentlora-helm (for prod tag bump)
+        if: ${{ inputs.target == 'production' && inputs.image-tag != '' }}
         uses: actions/checkout@v4
         with:
           repository: rentlora/rentlora-helm
           token: ${{ secrets.HELM_REPO_TOKEN }}
           path: helm
 
-      - name: Bump image tag in helm
-        if: ${{ inputs.image-tag != '' }}
+      - name: Bump prod image tag in helm
+        if: ${{ inputs.target == 'production' && inputs.image-tag != '' }}
         shell: bash
         env:
           TAG: ${{ inputs.image-tag }}
-          ENVDIR: ${{ steps.cfg.outputs.envdir }}
         run: |
           cd helm
-          sed -i -E "s/(imageTag:[[:space:]]*)[^[:space:]#]+/\1${TAG}/" "environments/${ENVDIR}/values.yaml"
+          sed -i -E "s/(imageTag:[[:space:]]*)[^[:space:]#]+/\1${TAG}/" "environments/prod/values.yaml"
           git config user.name  "rentlora-ci"
           git config user.email "ci@rentlora.in"
-          git add "environments/${ENVDIR}/values.yaml"
-          git commit -m "ci: ${ENVDIR} imageTag -> ${TAG}" || echo "no change to commit"
+          git add "environments/prod/values.yaml"
+          git commit -m "ci: prod imageTag -> ${TAG}" || echo "no change to commit"
           git push || echo "nothing to push"
 
       - name: Configure AWS credentials (OIDC)
@@ -103,9 +112,11 @@ jobs:
         env:
           NS: ${{ steps.cfg.outputs.ns }}
           TAG: ${{ inputs.image-tag }}
+          SERVICES_JSON: ${{ inputs.services }}
         run: |
           set -euo pipefail
-          services="frontend property-service booking-service ai-service admin-service ai-search-service"
+          services=$(echo "$SERVICES_JSON" | jq -r '.[]' | tr '\n' ' ')
+          echo "Verifying services: $services"
           # If a tag was provided, wait until each Deployment references it before
           # checking rollout (ArgoCD can lag the git commit by a reconcile cycle).
           if [ -n "${TAG}" ]; then
