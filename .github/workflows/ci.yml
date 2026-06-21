@@ -17,26 +17,53 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Which services changed in this PR? Only those get linted/tested/scanned.
+  changes:
+    name: detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      services: ${{ steps.set.outputs.services }}   # all changed (incl. frontend)
+      backends: ${{ steps.set.outputs.backends }}   # changed python services only
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            frontend: ['frontend/**']
+            property-service: ['backend/property-service/**']
+            booking-service: ['backend/booking-service/**']
+            ai-service: ['backend/ai-service/**']
+            admin-service: ['backend/admin-service/**']
+            ai-search-service: ['backend/ai-search-service/**']
+      - name: Resolve service lists
+        id: set
+        shell: bash
+        run: |
+          SVCS='${{ steps.filter.outputs.changes }}'
+          echo "services=$SVCS" >> "$GITHUB_OUTPUT"
+          echo "backends=$(echo "$SVCS" | jq -c '[.[] | select(. != "frontend")]')" >> "$GITHUB_OUTPUT"
+          echo "changed services: $SVCS"
+
   lint-test:
     name: lint+test ${{ matrix.service }}
+    needs: changes
+    if: ${{ needs.changes.outputs.backends != '[]' }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - { service: property-service,  context: backend/property-service }
-          - { service: booking-service,   context: backend/booking-service }
-          - { service: ai-service,        context: backend/ai-service }
-          - { service: admin-service,     context: backend/admin-service }
-          - { service: ai-search-service, context: backend/ai-search-service }
+        service: ${{ fromJson(needs.changes.outputs.backends) }}
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/python-checks
         with:
-          context: ${{ matrix.context }}
+          context: backend/${{ matrix.service }}
 
   image-scan:
     name: build+scan ${{ matrix.service }}
+    needs: changes
+    if: ${{ needs.changes.outputs.services != '[]' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -44,20 +71,23 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - { service: frontend,          context: frontend }
-          - { service: property-service,  context: backend/property-service }
-          - { service: booking-service,   context: backend/booking-service }
-          - { service: ai-service,        context: backend/ai-service }
-          - { service: admin-service,     context: backend/admin-service }
-          - { service: ai-search-service, context: backend/ai-search-service }
+        service: ${{ fromJson(needs.changes.outputs.services) }}
     steps:
       - uses: actions/checkout@v4
+      - name: Resolve context
+        id: ctx
+        shell: bash
+        run: |
+          if [ "${{ matrix.service }}" = "frontend" ]; then
+            echo "context=frontend" >> "$GITHUB_OUTPUT"
+          else
+            echo "context=backend/${{ matrix.service }}" >> "$GITHUB_OUTPUT"
+          fi
       - name: Build + Trivy scan (no push)
         uses: ./.github/actions/build-scan-push
         with:
           service: ${{ matrix.service }}
-          context: ${{ matrix.context }}
+          context: ${{ steps.ctx.outputs.context }}
           registry: local          # PR build only — image is scanned, never pushed
           image-tag: ${{ github.sha }}
           push: "false"
@@ -104,7 +134,7 @@ jobs:
   ci-complete:
     name: ci-complete
     if: always()
-    needs: [lint-test, image-scan, sonarcloud, snyk]
+    needs: [changes, lint-test, image-scan, sonarcloud, snyk]
     runs-on: ubuntu-latest
     steps:
       - name: Gate on upstream results
