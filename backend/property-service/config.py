@@ -72,3 +72,5 @@ def fetch_aws_config():
 def get_settings() -> Settings:
     aws_values = fetch_aws_config()
     return Settings(**aws_values)
+
+# ci: path-filter test (only property-service should build)
