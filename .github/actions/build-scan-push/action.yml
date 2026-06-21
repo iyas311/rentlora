@@ -32,19 +32,30 @@ runs:
           -t "${{ inputs.registry }}/rentlora-${{ inputs.service }}:${{ inputs.image-tag }}" \
           "${{ inputs.context }}"
 
-    # Report HIGH + CRITICAL for visibility (never fails the build) ...
-    - name: Trivy scan — report HIGH/CRITICAL
+    # Scan to SARIF (HIGH + CRITICAL) and publish to the GitHub Security tab. Never
+    # fails here — the gate below is what blocks. Results appear under
+    # Security → Code scanning, one category per service.
+    - name: Trivy scan — SARIF
       uses: aquasecurity/trivy-action@master
       with:
         image-ref: "${{ inputs.registry }}/rentlora-${{ inputs.service }}:${{ inputs.image-tag }}"
-        format: table
+        format: sarif
+        output: "trivy-${{ inputs.service }}.sarif"
         severity: HIGH,CRITICAL
         exit-code: "0"
         ignore-unfixed: true
         vuln-type: os,library
 
-    # ... but only CRITICAL blocks the deploy. HIGH base-image/OS findings are tracked
-    # as tech-debt (see .trivyignore); tighten this back to HIGH once they're remediated.
+    - name: Upload Trivy SARIF to code scanning
+      if: always()
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: "trivy-${{ inputs.service }}.sarif"
+        category: "image-${{ inputs.service }}"
+
+    # Only CRITICAL blocks the deploy. HIGH base-image/OS findings are visible in the
+    # Security tab and tracked as tech-debt (see .trivyignore); tighten this back to
+    # HIGH once they're remediated.
     - name: Trivy gate — fail on CRITICAL
       uses: aquasecurity/trivy-action@master
       with:
