@@ -5,6 +5,7 @@ from sqlalchemy.orm import DeclarativeBase
 settings = get_settings()
 engine = create_async_engine(
     settings.database_url,
+    connect_args={"ssl": "require"},  # RDS enforces SSL (rds.force_ssl=1)
     pool_pre_ping=True,
     pool_size=10,
     max_overflow=20,
