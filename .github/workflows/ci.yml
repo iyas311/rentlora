@@ -61,7 +61,6 @@ jobs:
 
   sonarcloud:
     name: SAST (SonarCloud)
-    if: false   # TEMPORARILY DISABLED — re-enable once SONAR_TOKEN is configured
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
