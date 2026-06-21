@@ -79,7 +79,6 @@ jobs:
 
   bump-dev:
     name: bump dev image tag
-    if: false   # TEMPORARILY DISABLED — re-enable once HELM_REPO_TOKEN (cross-repo PAT) is configured
     needs: build
     runs-on: ubuntu-latest
     steps:
