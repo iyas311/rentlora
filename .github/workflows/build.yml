@@ -116,7 +116,6 @@ jobs:
 
   deploy-dev:
     name: verify dev rollout
-    if: false   # TEMPORARILY DISABLED — re-enable after bootstrap (needs live cluster + HELM_REPO_TOKEN)
     needs: bump-dev
     uses: ./.github/workflows/deploy.yml
     with:
