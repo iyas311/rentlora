@@ -10,14 +10,14 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from logging_config import setup_logging
 from metrics import emit_metric
-from routes import bookings_router
+from routes import auth_router, users_router
 from sqlalchemy import text
 
 settings = get_settings()
-setup_logging("booking-service")
-logger = logging.getLogger("booking-service")
+setup_logging("user-service")
+logger = logging.getLogger("user-service")
 
-app = FastAPI(title="Rentlora Booking Service", version=settings.app_version)
+app = FastAPI(title="Rentlora User Service", version=settings.app_version)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -26,7 +26,7 @@ app.add_middleware(
 )
 
 METRICS_NAMESPACE = "Rentlora"
-SERVICE_DIM = {"Service": "booking-service"}
+SERVICE_DIM = {"Service": "user-service"}
 
 
 @app.middleware("http")
@@ -79,12 +79,12 @@ async def startup():
                 raise e
             logger.warning(f"Database initialization attempt {attempt + 1} failed. Retrying in 2 seconds...")
             await asyncio.sleep(2)
-    logger.info("booking-service started on port 8002")
+    logger.info("user-service started on port 8006")
 
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "service": "booking-service", "db": "connected"}
+    return {"status": "ok", "service": "user-service", "db": "connected"}
 
 
 @app.get("/healthz")
@@ -105,4 +105,5 @@ async def ready():
         raise HTTPException(status_code=503, detail="not ready")
 
 
-app.include_router(bookings_router, prefix="/api")
+app.include_router(auth_router, prefix="/api")
+app.include_router(users_router, prefix="/api")

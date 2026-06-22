@@ -28,7 +28,7 @@ on:
       services:
         description: 'JSON array of services to verify, e.g. ["frontend"]. Default: all six.'
         required: false
-        default: '["frontend","property-service","booking-service","ai-service","admin-service","ai-search-service"]'
+        default: '["frontend","property-service","booking-service","ai-service","admin-service","ai-search-service","user-service"]'
   workflow_call:
     inputs:
       target:
@@ -41,7 +41,7 @@ on:
       services:
         type: string
         required: false
-        default: '["frontend","property-service","booking-service","ai-service","admin-service","ai-search-service"]'
+        default: '["frontend","property-service","booking-service","ai-service","admin-service","ai-search-service","user-service"]'
 
 permissions:
   id-token: write
