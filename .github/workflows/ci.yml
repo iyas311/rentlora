@@ -36,6 +36,7 @@ jobs:
             ai-service: ['backend/ai-service/**']
             admin-service: ['backend/admin-service/**']
             ai-search-service: ['backend/ai-search-service/**']
+            user-service: ['backend/user-service/**']
       - name: Resolve service lists
         id: set
         shell: bash
@@ -100,7 +101,7 @@ jobs:
         with:
           fetch-depth: 0           # full history for accurate new-code analysis
       - name: SonarCloud scan
-        uses: SonarSource/sonarqube-scan-action@v4
+        uses: SonarSource/sonarqube-scan-action@v6
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
