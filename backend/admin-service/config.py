@@ -21,7 +21,7 @@ def fetch_aws_config():
     Sensitive values (db password, jwt) come from Secrets Manager; non-sensitive
     values (db host/user/name) come from Parameter Store, each with a fallback.
     Credentials are resolved via the pod's IRSA role — no static keys, no .env.
-    
+
     """
     env = os.getenv("ENV", "local")
     if env not in ["dev", "prod"]:

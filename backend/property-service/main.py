@@ -4,7 +4,6 @@ import os
 import time
 import uuid
 
-
 import models  # noqa: F401
 from config import get_settings
 from database import Base, engine
