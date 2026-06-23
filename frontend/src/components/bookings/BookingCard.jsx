@@ -5,7 +5,6 @@ import { formatCurrency } from "../../utils/priceUtils";
 export default function BookingCard({ booking, onCancel, onReview }) {
   const isConfirmed = booking.status?.toLowerCase() === "confirmed";
   const isCompleted = booking.status?.toLowerCase() === "completed";
-  const isCancelled = booking.status?.toLowerCase() === "cancelled" || booking.status?.toLowerCase() === "canceled";
 
   const getStatusBadge = (status) => {
     const s = status?.toLowerCase();

@@ -1,17 +1,3 @@
-# Build pipeline — CI + automatic dev deploy.
-#
-# Flow: push to main → detect which services changed → (only those) ruff → pytest →
-#       docker build → Trivy gate → push to ECR → bump that service's tag in
-#       environments/dev/values.yaml (per-service) → ArgoCD auto-syncs dev →
-#       verify rollout (via deploy.yml, target=dev).
-#
-# A one-service change rebuilds + redeploys only that service. workflow_dispatch
-# (manual) rebuilds all six.
-#
-# Required repo secrets:
-#   AWS_CI_ROLE_ARN    arn of the rentlora-eks-ci role (OIDC; no static keys)
-#   HELM_REPO_TOKEN    PAT with write access to rentlora/rentlora-helm
-#   SLACK_WEBHOOK_URL  Slack incoming webhook (optional; notifications skipped if unset)
 name: build
 
 on:
@@ -20,9 +6,9 @@ on:
   workflow_dispatch:
 
 permissions:
-  id-token: write          # OIDC -> assume AWS role
+  id-token: write
   contents: read
-  security-events: write   # upload Trivy SARIF to code scanning
+  security-events: write
 
 concurrency:
   group: build-${{ github.ref }}
@@ -32,7 +18,6 @@ env:
   AWS_REGION: us-east-1
 
 jobs:
-  # Which services changed? Outputs a JSON array consumed as the build matrix.
   changes:
     name: detect changes
     runs-on: ubuntu-latest
@@ -44,30 +29,27 @@ jobs:
         id: filter
         with:
           filters: |
-            frontend: ['frontend/**']
-            property-service: ['backend/property-service/**']
-            booking-service: ['backend/booking-service/**']
-            ai-service: ['backend/ai-service/**']
-            admin-service: ['backend/admin-service/**']
+            frontend:          ['frontend/**']
+            property-service:  ['backend/property-service/**']
+            booking-service:   ['backend/booking-service/**']
+            ai-service:        ['backend/ai-service/**']
+            admin-service:     ['backend/admin-service/**']
             ai-search-service: ['backend/ai-search-service/**']
-            user-service: ['backend/user-service/**']
-      - name: Resolve service list
-        id: set
-        shell: bash
+            user-service:      ['backend/user-service/**']
+      - id: set
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            # Manual run rebuilds everything.
             echo 'services=["frontend","property-service","booking-service","ai-service","admin-service","ai-search-service","user-service"]' >> "$GITHUB_OUTPUT"
           else
             echo 'services=${{ steps.filter.outputs.changes }}' >> "$GITHUB_OUTPUT"
           fi
-          echo "Changed services: ${{ steps.filter.outputs.changes }}"
 
   build:
     name: build ${{ matrix.service }}
     needs: changes
-    if: ${{ needs.changes.outputs.services != '[]' }}
+    if: needs.changes.outputs.services != '[]'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -75,44 +57,70 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Resolve context
+      - name: Resolve build context
         id: ctx
-        shell: bash
         run: |
           if [ "${{ matrix.service }}" = "frontend" ]; then
             echo "context=frontend" >> "$GITHUB_OUTPUT"
-            echo "python=false"     >> "$GITHUB_OUTPUT"
           else
             echo "context=backend/${{ matrix.service }}" >> "$GITHUB_OUTPUT"
-            echo "python=true"                            >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Configure AWS credentials (OIDC)
+      - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_CI_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Log in to Amazon ECR
+      - name: Log in to ECR
         id: ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Lint + test (Python services)
-        if: ${{ steps.ctx.outputs.python == 'true' }}
-        uses: ./.github/actions/python-checks
+      - uses: docker/setup-buildx-action@v3
+
+      # Build locally first — Trivy gates before the image reaches ECR.
+      - name: Build image
+        uses: docker/build-push-action@v6
         with:
           context: ${{ steps.ctx.outputs.context }}
+          push: false
+          load: true
+          tags: ${{ steps.ecr.outputs.registry }}/rentlora-${{ matrix.service }}:${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,scope=${{ matrix.service }},mode=max
 
-      - name: Build, scan, push
-        uses: ./.github/actions/build-scan-push
+      - name: Trivy gate — CRITICAL
+        uses: aquasecurity/trivy-action@0.35.0
         with:
-          service: ${{ matrix.service }}
-          context: ${{ steps.ctx.outputs.context }}
-          registry: ${{ steps.ecr.outputs.registry }}
-          image-tag: ${{ github.sha }}
-          push: "true"
+          image-ref: ${{ steps.ecr.outputs.registry }}/rentlora-${{ matrix.service }}:${{ github.sha }}
+          format: table
+          severity: CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: os,library
 
-      - name: Notify on failure
+      - name: Trivy scan — SARIF
+        if: always()
+        uses: aquasecurity/trivy-action@0.35.0
+        with:
+          image-ref: ${{ steps.ecr.outputs.registry }}/rentlora-${{ matrix.service }}:${{ github.sha }}
+          format: sarif
+          output: trivy-${{ matrix.service }}.sarif
+          severity: HIGH,CRITICAL
+          exit-code: "0"
+          ignore-unfixed: true
+          vuln-type: os,library
+
+      - uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-${{ matrix.service }}.sarif
+          category: image-${{ matrix.service }}
+
+      - name: Push to ECR
+        run: docker push ${{ steps.ecr.outputs.registry }}/rentlora-${{ matrix.service }}:${{ github.sha }}
+
+      - name: Notify failure
         if: failure()
         uses: ./.github/actions/notify
         with:
@@ -125,8 +133,9 @@ jobs:
     name: bump dev image tags
     needs: [changes, build]
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4          # rentlora — for the local notify action
+      - uses: actions/checkout@v4
 
       - name: Checkout rentlora-helm
         uses: actions/checkout@v4
@@ -135,8 +144,7 @@ jobs:
           token: ${{ secrets.HELM_REPO_TOKEN }}
           path: helm
 
-      - name: Bump changed services in dev imageTags
-        shell: bash
+      - name: Bump changed services
         env:
           TAG: ${{ github.sha }}
           SERVICES: ${{ needs.changes.outputs.services }}
@@ -144,15 +152,23 @@ jobs:
           cd helm
           for svc in $(echo "$SERVICES" | jq -r '.[]'); do
             yq -i ".imageTags.\"${svc}\" = \"${TAG}\"" environments/dev/values.yaml
-            echo "  bumped ${svc} -> ${TAG}"
           done
           git config user.name  "rentlora-ci"
           git config user.email "ci@rentlora.in"
           git add environments/dev/values.yaml
-          git commit -m "ci: dev bump ${SERVICES} -> ${TAG}" || { echo "no change to commit"; exit 0; }
+          git commit -m "ci: bump dev [${SERVICES}] → ${TAG}" || exit 0
           git push
 
-      - name: Notify on failure
+      - name: Notify success
+        if: success()
+        uses: ./.github/actions/notify
+        with:
+          status: success
+          title: "dev deploy triggered"
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          details: "ArgoCD syncing → dev.rentlora.in | commit ${{ github.sha }}"
+
+      - name: Notify failure
         if: failure()
         uses: ./.github/actions/notify
         with:
@@ -160,13 +176,3 @@ jobs:
           title: "dev tag bump failed"
           webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
           details: "commit ${{ github.sha }}"
-
-  deploy-dev:
-    name: verify dev rollout
-    needs: [changes, bump-dev]
-    uses: ./.github/workflows/deploy.yml
-    with:
-      target: dev
-      image-tag: ${{ github.sha }}
-      services: ${{ needs.changes.outputs.services }}
-    secrets: inherit

@@ -1,0 +1,85 @@
+name: release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  # Snapshot dev imageTags BEFORE the approval gate — what the reviewer approves
+  # is exactly what was running in dev at the moment the release was published.
+  prepare:
+    name: snapshot dev image tags
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      imagetags: ${{ steps.snap.outputs.imagetags }}
+    steps:
+      - name: Checkout rentlora-helm
+        uses: actions/checkout@v4
+        with:
+          repository: rentlora/rentlora-helm
+          token: ${{ secrets.HELM_REPO_TOKEN }}
+
+      - name: Snapshot
+        id: snap
+        run: |
+          tags=$(yq '.imageTags' environments/dev/values.yaml -o=json -I=0)
+          echo "imagetags=${tags}" >> "$GITHUB_OUTPUT"
+          echo "Promoting to prod: ${tags}"
+
+  deploy:
+    name: deploy production (${{ github.event.release.tag_name }})
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout rentlora-helm
+        uses: actions/checkout@v4
+        with:
+          repository: rentlora/rentlora-helm
+          token: ${{ secrets.HELM_REPO_TOKEN }}
+          path: helm
+
+      - name: Write prod imageTags
+        env:
+          IMAGETAGS: ${{ needs.prepare.outputs.imagetags }}
+          VERSION: ${{ github.event.release.tag_name }}
+        run: |
+          cd helm
+          echo "$IMAGETAGS" | jq -r 'to_entries[] | "\(.key) \(.value)"' | while IFS=' ' read -r svc tag; do
+            yq -i ".imageTags.\"${svc}\" = \"${tag}\"" environments/prod/values.yaml
+          done
+          yq -i ".releaseVersion = \"${VERSION}\"" environments/prod/values.yaml
+          git config user.name  "rentlora-ci"
+          git config user.email "ci@rentlora.in"
+          git add environments/prod/values.yaml
+          git commit -m "release: ${VERSION}"
+          git push
+
+      - name: Notify success
+        if: success()
+        uses: ./.github/actions/notify
+        with:
+          status: success
+          title: "prod release ${{ github.event.release.tag_name }} deployed"
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          details: "ArgoCD syncing → rentlora.in"
+
+      - name: Notify failure
+        if: failure()
+        uses: ./.github/actions/notify
+        with:
+          status: failure
+          title: "prod release ${{ github.event.release.tag_name }} FAILED"
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          details: "check run logs"

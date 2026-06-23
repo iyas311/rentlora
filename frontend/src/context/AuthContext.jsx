@@ -29,7 +29,7 @@ export function AuthProvider({ children }) {
     return data;
   };
   const logout = async () => {
-    try { await logoutApi(); } catch {}
+    try { await logoutApi(); } catch { /* ignore */ }
     localStorage.clear();
     setUser(null);
   };
