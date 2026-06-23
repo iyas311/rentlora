@@ -123,7 +123,7 @@ jobs:
           cache-from: type=gha,scope=backend-${{ matrix.service }}
           cache-to: type=gha,scope=backend-${{ matrix.service }},mode=max
       - name: Trivy gate — CRITICAL
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@0.35.0
         with:
           image-ref: rentlora-${{ matrix.service }}:${{ github.sha }}
           format: table
@@ -133,7 +133,7 @@ jobs:
           vuln-type: os,library
       - name: Trivy scan — SARIF
         if: always()
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@0.35.0
         with:
           image-ref: rentlora-${{ matrix.service }}:${{ github.sha }}
           format: sarif

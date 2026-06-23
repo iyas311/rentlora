@@ -90,7 +90,7 @@ jobs:
           cache-to: type=gha,scope=${{ matrix.service }},mode=max
 
       - name: Trivy gate — CRITICAL
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@0.35.0
         with:
           image-ref: ${{ steps.ecr.outputs.registry }}/rentlora-${{ matrix.service }}:${{ github.sha }}
           format: table
@@ -101,7 +101,7 @@ jobs:
 
       - name: Trivy scan — SARIF
         if: always()
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@0.35.0
         with:
           image-ref: ${{ steps.ecr.outputs.registry }}/rentlora-${{ matrix.service }}:${{ github.sha }}
           format: sarif
