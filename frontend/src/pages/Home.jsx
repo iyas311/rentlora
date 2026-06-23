@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useProperties } from "../hooks/useProperties";
 import PropertyGrid from "../components/properties/PropertyGrid";
 import { FiMapPin, FiCalendar, FiUsers, FiSearch, FiAward, FiZap, FiShield } from "react-icons/fi";
-import { formatCurrency } from "../utils/priceUtils";
+
 
 export default function Home() {
   const navigate = useNavigate();

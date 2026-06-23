@@ -96,7 +96,7 @@ export default function MyBookings() {
           </div>
           <h3 className="text-lg font-bold text-slate-800">No Reservations Found</h3>
           <p className="text-slate-500 text-sm mt-1 mb-6 px-6">
-            You don't have any bookings matching this category. Start planning your next premium escape.
+            You don&apos;t have any bookings matching this category. Start planning your next premium escape.
           </p>
           <Link to="/browse">
             <button className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 shadow-md transition">

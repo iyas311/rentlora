@@ -71,7 +71,7 @@ export default function BookingWidget({ property, onBook }) {
       >
         Reserve Now
       </button>
-      <p className="text-center text-xs text-slate-400 font-medium mt-3">You won't be charged yet</p>
+      <p className="text-center text-xs text-slate-400 font-medium mt-3">You won&apos;t be charged yet</p>
     </div>
   );
 }
