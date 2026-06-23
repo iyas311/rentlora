@@ -143,3 +143,13 @@ jobs:
             exit 1
           fi
           echo "Backend CI passed."
+      - uses: actions/checkout@v4
+        if: failure()
+      - name: Notify failure
+        if: failure()
+        uses: ./.github/actions/notify
+        with:
+          status: failure
+          title: "backend CI failed — PR #${{ github.event.pull_request.number }}"
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          details: "${{ github.head_ref }}"
