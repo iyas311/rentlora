@@ -4,6 +4,8 @@ on:
   release:
     types: [published]
 
+concurrency: production-release
+
 permissions:
   id-token: write
   contents: read
