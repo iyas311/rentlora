@@ -55,7 +55,6 @@ jobs:
     name: SAST (SonarCloud)
     needs: [changes, compile-lint]
     if: needs.changes.outputs.services != '[]'
-    continue-on-error: true
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
