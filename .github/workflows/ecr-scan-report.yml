@@ -1,0 +1,79 @@
+name: ecr-scan-report
+
+on:
+  schedule:
+    - cron: '0 6 * * *'   # 6 AM UTC daily
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  check-findings:
+    name: ECR vulnerability check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_CI_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Check ECR scan findings
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          SERVICES=(frontend property-service booking-service ai-service admin-service ai-search-service user-service)
+          CRITICAL_TOTAL=0
+          FINDINGS_LINES=""
+
+          for svc in "${SERVICES[@]}"; do
+            REPO="rentlora-${svc}"
+
+            DIGEST=$(aws ecr describe-images \
+              --repository-name "$REPO" \
+              --query 'sort_by(imageDetails, &imagePushedAt)[-1].imageDigest' \
+              --output text 2>/dev/null) || continue
+            [ -z "$DIGEST" ] || [ "$DIGEST" = "None" ] && continue
+
+            COUNTS=$(aws ecr describe-image-scan-findings \
+              --repository-name "$REPO" \
+              --image-id imageDigest="$DIGEST" \
+              --query 'imageScanFindings.findingSeverityCounts' \
+              --output json 2>/dev/null) || continue
+
+            CRITICAL=$(echo "$COUNTS" | jq -r '.CRITICAL // 0')
+            HIGH=$(echo "$COUNTS" | jq -r '.HIGH // 0')
+
+            if [ "${CRITICAL:-0}" -gt 0 ]; then
+              CRITICAL_TOTAL=$((CRITICAL_TOTAL + CRITICAL))
+              FINDINGS_LINES="${FINDINGS_LINES}• \`${REPO}\`: ${CRITICAL} CRITICAL, ${HIGH} HIGH\n"
+            fi
+          done
+
+          if [ "$CRITICAL_TOTAL" -gt 0 ]; then
+            RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            FINDINGS_TEXT=$(printf "%b" "$FINDINGS_LINES")
+
+            if [ -n "$SLACK_WEBHOOK" ]; then
+              payload=$(jq -nc \
+                --arg findings "$FINDINGS_TEXT" \
+                --arg run_url "$RUN_URL" \
+                '{blocks:[
+                  {type:"section",
+                   text:{type:"mrkdwn",text:":rotating_light:  *ECR: CRITICAL vulnerabilities detected*"},
+                   accessory:{type:"button",text:{type:"plain_text",text:"View Run ↗",emoji:true},url:$run_url}},
+                  {type:"section",text:{type:"mrkdwn",text:$findings}},
+                  {type:"context",elements:[{type:"mrkdwn",text:"`rentlora/rentlora` · ECR daily scan"}]}
+                ]}')
+              curl -fsS -X POST -H 'Content-type: application/json' --data "$payload" "$SLACK_WEBHOOK"
+            fi
+
+            echo "CRITICAL findings found. Total: $CRITICAL_TOTAL"
+            echo "$FINDINGS_TEXT"
+            exit 1
+          else
+            echo "No CRITICAL findings in any ECR repo. All clear."
+          fi
