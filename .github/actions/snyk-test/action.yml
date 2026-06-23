@@ -1,0 +1,20 @@
+name: 'Snyk Test'
+description: 'Installs Snyk and runs snyk test'
+inputs:
+  working-directory:
+    description: 'Working directory for snyk test'
+    required: false
+    default: '.'
+  args:
+    description: 'Extra arguments for snyk test'
+    required: false
+    default: ''
+runs:
+  using: "composite"
+  steps:
+    - name: Install Snyk
+      uses: snyk/actions/setup@master
+    - name: Snyk test
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: snyk test --severity-threshold=high ${{ inputs.args }}

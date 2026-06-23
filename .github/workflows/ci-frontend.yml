@@ -68,11 +68,9 @@ jobs:
       - name: Install
         working-directory: frontend
         run: npm ci
-      - name: Install Snyk
-        run: npm install -g snyk
-      - name: Snyk test
-        working-directory: frontend
-        run: snyk test --severity-threshold=high
+      - uses: ./.github/actions/snyk-test
+        with:
+          working-directory: frontend
 
   # Stage 3 — image build + Trivy; only runs if SCA passed
   image-scan:
@@ -95,31 +93,9 @@ jobs:
           load: true
           tags: rentlora-frontend:${{ github.sha }}
           cache-from: type=gha,scope=frontend
-          cache-to: type=gha,scope=frontend,mode=max
-      - name: Trivy gate — CRITICAL
-        uses: aquasecurity/trivy-action@0.35.0
+      - uses: ./.github/actions/trivy-scan
         with:
           image-ref: rentlora-frontend:${{ github.sha }}
-          format: table
-          severity: CRITICAL
-          exit-code: "1"
-          ignore-unfixed: true
-          vuln-type: os,library
-      - name: Trivy scan — SARIF
-        if: always()
-        uses: aquasecurity/trivy-action@0.35.0
-        with:
-          image-ref: rentlora-frontend:${{ github.sha }}
-          format: sarif
-          output: trivy-frontend.sarif
-          severity: HIGH,CRITICAL
-          exit-code: "0"
-          ignore-unfixed: true
-          vuln-type: os,library
-      - uses: github/codeql-action/upload-sarif@v3
-        if: always()
-        with:
-          sarif_file: trivy-frontend.sarif
           category: image-frontend
 
   ci-frontend-complete:

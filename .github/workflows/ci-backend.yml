@@ -30,7 +30,7 @@ jobs:
             ai-search-service: ['backend/ai-search-service/**']
             user-service:      ['backend/user-service/**']
       - id: set
-        run: echo "services=${{ steps.filter.outputs.changes }}" >> "$GITHUB_OUTPUT"
+        run: echo 'services=${{ steps.filter.outputs.changes }}' >> "$GITHUB_OUTPUT"
 
   # Stage 1 — compile + lint (parallel per service)
   compile-lint:
@@ -87,14 +87,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-      - name: Install Snyk
-        run: npm install -g snyk
       - name: Install service deps
         working-directory: backend/${{ matrix.service }}
         run: pip install -r requirements.txt
-      - name: Snyk test
-        working-directory: backend/${{ matrix.service }}
-        run: snyk test --file=requirements.txt --package-manager=pip --severity-threshold=high
+      - uses: ./.github/actions/snyk-test
+        with:
+          working-directory: backend/${{ matrix.service }}
+          args: --file=requirements.txt --package-manager=pip
 
   # Stage 4 — image build + Trivy; only runs if all SCA legs passed (parallel per service)
   image-scan:
@@ -121,31 +120,9 @@ jobs:
           load: true
           tags: rentlora-${{ matrix.service }}:${{ github.sha }}
           cache-from: type=gha,scope=backend-${{ matrix.service }}
-          cache-to: type=gha,scope=backend-${{ matrix.service }},mode=max
-      - name: Trivy gate — CRITICAL
-        uses: aquasecurity/trivy-action@0.35.0
+      - uses: ./.github/actions/trivy-scan
         with:
           image-ref: rentlora-${{ matrix.service }}:${{ github.sha }}
-          format: table
-          severity: CRITICAL
-          exit-code: "1"
-          ignore-unfixed: true
-          vuln-type: os,library
-      - name: Trivy scan — SARIF
-        if: always()
-        uses: aquasecurity/trivy-action@0.35.0
-        with:
-          image-ref: rentlora-${{ matrix.service }}:${{ github.sha }}
-          format: sarif
-          output: trivy-${{ matrix.service }}.sarif
-          severity: HIGH,CRITICAL
-          exit-code: "0"
-          ignore-unfixed: true
-          vuln-type: os,library
-      - uses: github/codeql-action/upload-sarif@v3
-        if: always()
-        with:
-          sarif_file: trivy-${{ matrix.service }}.sarif
           category: image-${{ matrix.service }}
 
   ci-backend-complete:
