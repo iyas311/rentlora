@@ -41,7 +41,8 @@ export default function Navbar() {
     <nav className="sticky top-0 z-40 bg-white border-b border-gray-100 shadow-sm backdrop-blur-md bg-white/95">
       <div className="container-app flex h-16 items-center justify-between">
         {/* Left cluster: brand + primary nav grouped so the links sit beside the
-            logo instead of floating in the dead center of the header. */}
+            logo instead of floating in the dead center of the header.
+             */}
         <div className="flex items-center gap-10">
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2 group">
