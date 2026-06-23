@@ -74,7 +74,7 @@ export default function AiAssistant() {
           properties: data.properties,
         },
       ]);
-    } catch (err) {
+    } catch {
       setMessages((prev) => [
         ...prev,
         {

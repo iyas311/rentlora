@@ -29,7 +29,7 @@ export default function ReviewCard({ review }) {
           <StarRating value={review.rating} />
         </div>
       </div>
-      <p className="text-slate-600 leading-relaxed text-sm">"{review.comment}"</p>
+      <p className="text-slate-600 leading-relaxed text-sm">&ldquo;{review.comment}&rdquo;</p>
     </div>
   );
 }

@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { getHostBookings, cancelBooking, completeBooking } from "../api/bookings";
 import { getProperties, removeProperty } from "../api/properties";
-import Button from "../components/ui/Button";
+
 import { useAuth } from "../hooks/useAuth";
 import { formatCurrency } from "../utils/priceUtils";
 import { FiHome, FiCalendar, FiDollarSign, FiPlus, FiTrash2, FiMapPin, FiUser, FiActivity, FiArrowRight } from "react-icons/fi";
@@ -240,7 +240,7 @@ export default function HostDashboard() {
             ) : (
               <div className="text-center py-12">
                 <FiHome size={40} className="mx-auto text-slate-300 mb-3" />
-                <p className="text-slate-500 font-medium">You haven't listed any properties yet.</p>
+                <p className="text-slate-500 font-medium">You haven&apos;t listed any properties yet.</p>
                 <Link to="/host/add-property" className="mt-3 inline-block text-sm font-bold text-indigo-600 hover:text-indigo-700">
                   Create your first listing &rarr;
                 </Link>

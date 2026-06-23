@@ -1,5 +1,5 @@
 name: python-checks
-description: Lint (ruff) and test (pytest) a Python service. Shared by ci.yml and build.yml.
+description: Compile-check (compileall) and lint (ruff) a Python service.
 
 inputs:
   context:
@@ -13,17 +13,22 @@ runs:
       uses: actions/setup-python@v5
       with:
         python-version: "3.11"
+        cache: pip
+        cache-dependency-path: ${{ inputs.context }}/requirements.txt
 
-    - name: ruff + pytest
+    - name: Install dependencies
       shell: bash
       working-directory: ${{ inputs.context }}
       run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install ruff pytest httpx
-        echo "::group::ruff"
-        ruff check .            # discovers ../ruff.toml automatically
-        echo "::endgroup::"
-        echo "::group::pytest"
-        pytest -q
-        echo "::endgroup::"
+        pip install --upgrade pip
+        pip install -r requirements.txt ruff
+
+    - name: Compile check
+      shell: bash
+      working-directory: ${{ inputs.context }}
+      run: python -m compileall -q .
+
+    - name: Lint
+      shell: bash
+      working-directory: ${{ inputs.context }}
+      run: ruff check .

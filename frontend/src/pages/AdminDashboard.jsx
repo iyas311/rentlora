@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { FiUsers, FiHome, FiCalendar, FiCheck, FiX, FiTrash2, FiActivity, FiShield, FiTrendingUp } from 'react-icons/fi';
+import { FiUsers, FiHome, FiCalendar, FiTrash2, FiActivity, FiShield, FiTrendingUp } from 'react-icons/fi';
 import toast from 'react-hot-toast';
-import { useAuth } from '../hooks/useAuth';
 import { formatCurrency } from '../utils/priceUtils';
 import { TableSkeleton } from '../components/ui/Skeleton';
 

@@ -1,4 +1,4 @@
-import { FiWifi, FiCoffee, FiMonitor, FiWind, FiCheckCircle, FiThermometer, FiSun, FiHome, FiImage, FiGrid } from "react-icons/fi";
+import { FiWifi, FiCoffee, FiMonitor, FiWind, FiCheckCircle, FiThermometer, FiSun, FiImage, FiGrid } from "react-icons/fi";
 
 const getAmenityIcon = (name) => {
   const lower = name.toLowerCase();
