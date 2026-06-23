@@ -63,6 +63,7 @@ jobs:
       - uses: SonarSource/sonarqube-scan-action@v6
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # Stage 3 — SCA; only runs if SAST passed (parallel per service)
   sca:
