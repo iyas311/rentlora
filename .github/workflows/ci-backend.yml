@@ -153,6 +153,7 @@ jobs:
     if: always()
     needs: [changes, compile-lint, sast, sca, image-scan]
     runs-on: ubuntu-latest
+    timeout-minutes: 2
     steps:
       - name: Gate
         env:
