@@ -8,25 +8,26 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // On load, if there's a valid Cognito session the client attaches its token and
+  // getMe() resolves (provisioning the local user on first call); otherwise 401.
   useEffect(() => {
-    const token = localStorage.getItem("access_token");
-    if (!token) return setLoading(false);
-    getMe().then(setUser).finally(() => setLoading(false));
+    getMe()
+      .then(setUser)
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
   const login = async (payload) => {
-    const data = await loginApi(payload);
-    localStorage.setItem("access_token", data.access_token);
-    localStorage.setItem("refresh_token", data.refresh_token);
-    setUser(data.user);
-    return data;
+    await loginApi(payload);
+    const me = await getMe();
+    setUser(me);
+    return me;
   };
   const register = async (payload) => {
-    const data = await registerApi(payload);
-    localStorage.setItem("access_token", data.access_token);
-    localStorage.setItem("refresh_token", data.refresh_token);
-    setUser(data.user);
-    return data;
+    await registerApi(payload);
+    const me = await getMe();
+    setUser(me);
+    return me;
   };
   const logout = async () => {
     try { await logoutApi(); } catch { /* ignore */ }
@@ -34,6 +35,9 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
-  const value = useMemo(() => ({ user, loading, isAuthenticated: !!user, login, register, logout, setUser }), [user, loading]);
+  const value = useMemo(
+    () => ({ user, loading, isAuthenticated: !!user, login, register, logout, setUser }),
+    [user, loading]
+  );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

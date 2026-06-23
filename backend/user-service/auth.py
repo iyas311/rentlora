@@ -1,62 +1,76 @@
-from datetime import datetime, timedelta, timezone
+"""Cognito-based auth. Validates the Cognito ID token (RS256, verified against the
+user pool's JWKS) and just-in-time provisions a local User row keyed by email, so
+the rest of the app keeps using the integer User.id (FK'd from bookings/properties).
+Self-contained: reads the pool/client ids from SSM via the pod's IRSA role."""
+
+import os
 from typing import Optional
 
-import bcrypt
+import boto3
 import jwt
-from config import get_settings
 from database import get_db
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from jwt import PyJWKClient
 from models import User
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-settings = get_settings()
 security = HTTPBearer(auto_error=False)
-ALGO = "HS256"
-ACCESS_MINUTES = 30
-REFRESH_DAYS = 7
+_REGION = os.getenv("AWS_DEFAULT_REGION", "us-east-1")
+_ENV = os.getenv("ENV", "local")
 
 
-def hash_password(password: str) -> str:
-    return bcrypt.hashpw(password.encode(), bcrypt.gensalt(rounds=12)).decode()
-
-
-def verify_password(password: str, password_hash: str) -> bool:
-    return bcrypt.checkpw(password.encode(), password_hash.encode())
-
-
-def create_access_token(user_id: int, email: str, role: str) -> str:
-    now = datetime.now(timezone.utc)
-    payload = {
-        "sub": str(user_id),
-        "email": email,
-        "role": role,
-        "type": "access",
-        "iat": int(now.timestamp()),
-        "exp": int((now + timedelta(minutes=ACCESS_MINUTES)).timestamp()),
-    }
-    return jwt.encode(payload, settings.jwt_secret, algorithm=ALGO)
-
-
-def create_refresh_token(user_id: int) -> str:
-    now = datetime.now(timezone.utc)
-    payload = {
-        "sub": str(user_id),
-        "type": "refresh",
-        "iat": int(now.timestamp()),
-        "exp": int((now + timedelta(days=REFRESH_DAYS)).timestamp()),
-    }
-    return jwt.encode(payload, settings.jwt_secret, algorithm=ALGO)
-
-
-def decode_token(token: str) -> dict:
+def _load_cognito():
+    """Resolve pool/client ids from SSM and build a cached JWKS client. Returns None
+    (rather than crashing the service at import) if config can't be read."""
+    if _ENV not in ("dev", "prod"):
+        return None
     try:
-        return jwt.decode(token, settings.jwt_secret, algorithms=[ALGO])
+        ssm = boto3.client("ssm", region_name=_REGION)
+        pool_id = ssm.get_parameter(Name=f"/rentlora/{_ENV}/cognito-user-pool-id")["Parameter"]["Value"]
+        client_id = ssm.get_parameter(Name=f"/rentlora/{_ENV}/cognito-client-id")["Parameter"]["Value"]
+    except Exception:
+        return None
+    issuer = f"https://cognito-idp.{_REGION}.amazonaws.com/{pool_id}"
+    return {
+        "pool_id": pool_id,
+        "client_id": client_id,
+        "issuer": issuer,
+        "jwks": PyJWKClient(f"{issuer}/.well-known/jwks.json"),
+    }
+
+
+_COGNITO = _load_cognito()
+
+
+def cognito_public_config() -> dict:
+    """Non-secret ids the SPA needs to talk to Cognito (served via /auth/config)."""
+    if not _COGNITO:
+        return {}
+    return {"userPoolId": _COGNITO["pool_id"], "clientId": _COGNITO["client_id"], "region": _REGION}
+
+
+def _verify(token: str) -> dict:
+    if not _COGNITO:
+        raise HTTPException(status_code=500, detail="Cognito not configured")
+    try:
+        key = _COGNITO["jwks"].get_signing_key_from_jwt(token).key
+        claims = jwt.decode(
+            token,
+            key,
+            algorithms=["RS256"],
+            audience=_COGNITO["client_id"],
+            issuer=_COGNITO["issuer"],
+        )
     except jwt.ExpiredSignatureError as exc:
         raise HTTPException(status_code=401, detail="Token expired") from exc
-    except jwt.InvalidTokenError as exc:
+    except Exception as exc:
         raise HTTPException(status_code=401, detail="Invalid token") from exc
+    if claims.get("token_use") != "id":
+        raise HTTPException(status_code=401, detail="ID token required")
+    return claims
 
 
 async def get_current_user(
@@ -65,10 +79,30 @@ async def get_current_user(
 ) -> User:
     if not creds:
         raise HTTPException(status_code=401, detail="Missing Authorization header")
-    payload = decode_token(creds.credentials)
-    if payload.get("type") != "access":
-        raise HTTPException(status_code=401, detail="Refresh token not allowed")
-    user = await db.scalar(select(User).where(User.id == int(payload["sub"])))
-    if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+    claims = _verify(creds.credentials)
+    email = (claims.get("email") or "").lower()
+    if not email:
+        raise HTTPException(status_code=401, detail="Token missing email")
+
+    user = await db.scalar(select(User).where(User.email == email))
+    if user:
+        return user
+
+    # First time we see this Cognito user → create the local row. Role from the
+    # cognito:groups claim (admin/host/user), default "user".
+    groups = claims.get("cognito:groups") or []
+    user = User(
+        name=claims.get("name") or email.split("@")[0],
+        email=email,
+        password_hash="cognito",  # password is managed by Cognito, not locally
+        role=groups[0] if groups else "user",
+    )
+    db.add(user)
+    try:
+        await db.commit()
+        await db.refresh(user)
+    except IntegrityError:
+        # Concurrent create from another service — re-fetch the winner.
+        await db.rollback()
+        user = await db.scalar(select(User).where(User.email == email))
     return user
