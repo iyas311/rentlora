@@ -3,7 +3,9 @@ ID token against the user pool's JWKS and returns a lightweight user dict from t
 claims. The chat endpoint forwards the raw token to the agent, which calls the other
 services on the user's behalf."""
 
+import json
 import os
+import urllib.request
 from typing import Optional
 
 import boto3
@@ -15,6 +17,22 @@ from jwt import PyJWKClient
 security = HTTPBearer(auto_error=False)
 _REGION = os.getenv("AWS_DEFAULT_REGION", "us-east-1")
 _ENV = os.getenv("ENV", "local")
+# Roles live in the DB (User.role); this stateless service asks user-service for
+# the authoritative role (same-namespace K8s DNS works in dev + prod).
+_USER_SERVICE = os.getenv("USER_SERVICE_URL", "http://user-service:8006")
+
+
+def _resolve_role(token: str, claims: dict) -> str:
+    try:
+        req = urllib.request.Request(
+            f"{_USER_SERVICE}/api/users/me",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            return json.load(resp).get("role", "guest")
+    except Exception:
+        groups = claims.get("cognito:groups") or []
+        return groups[0] if groups else "guest"
 
 
 def _load_cognito():
@@ -53,9 +71,8 @@ async def get_current_user(creds: Optional[HTTPAuthorizationCredentials] = Depen
         raise HTTPException(status_code=401, detail="Invalid token") from exc
     if claims.get("token_use") != "id":
         raise HTTPException(status_code=401, detail="ID token required")
-    groups = claims.get("cognito:groups") or []
     return {
         "id": claims.get("sub"),
         "email": (claims.get("email") or "").lower(),
-        "role": groups[0] if groups else "user",
+        "role": _resolve_role(creds.credentials, claims),
     }
