@@ -10,6 +10,9 @@ WORKDIR /app
 RUN useradd -m -u 1000 appuser
 COPY --from=builder /root/.local /home/appuser/.local
 COPY --chown=appuser:appuser . .
+# /app is root-owned (created by WORKDIR); the app creates ./uploads at startup,
+# so give appuser ownership of /app and pre-create the dir.
+RUN mkdir -p /app/uploads && chown -R appuser:appuser /app
 USER appuser
 ENV PATH=/home/appuser/.local/bin:$PATH
 EXPOSE 8001
