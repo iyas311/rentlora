@@ -1,5 +1,5 @@
 import { createContext, useEffect, useMemo, useState } from "react";
-import { loginApi, logoutApi, registerApi } from "../api/auth";
+import { loginApi, logoutApi, registerApi, registerProfileApi } from "../api/auth";
 import { getMe } from "../api/users";
 
 export const AuthContext = createContext(null);
@@ -25,6 +25,7 @@ export function AuthProvider({ children }) {
   };
   const register = async (payload) => {
     await registerApi(payload);
+    await registerProfileApi(payload);   // persist the chosen role (guest/host)
     const me = await getMe();
     setUser(me);
     return me;
