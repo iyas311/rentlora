@@ -45,6 +45,35 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_CI_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # Re-tag the exact dev-tested images with the semver release version in ECR.
+      # ECR add-a-tag = batch-get-image (read the manifest) + put-image (write the
+      # new tag to the same manifest) — no rebuild, no re-push of layers.
+      - name: Re-tag promoted images as ${{ github.event.release.tag_name }}
+        env:
+          IMAGETAGS: ${{ needs.prepare.outputs.imagetags }}
+          VERSION: ${{ github.event.release.tag_name }}
+        run: |
+          echo "$IMAGETAGS" | jq -r 'to_entries[] | "\(.key) \(.value)"' | while IFS=' ' read -r svc sha; do
+            repo="rentlora-${svc}"
+            manifest=$(aws ecr batch-get-image --repository-name "$repo" \
+              --image-ids imageTag="$sha" --query 'images[0].imageManifest' --output text)
+            if [ -z "$manifest" ] || [ "$manifest" = "None" ]; then
+              echo "::error::missing image ${repo}:${sha}"; exit 1
+            fi
+            if aws ecr put-image --repository-name "$repo" --image-tag "$VERSION" \
+                 --image-manifest "$manifest" >/dev/null 2>&1; then
+              echo "retagged ${repo}:${sha} -> ${VERSION}"
+            else
+              echo "${repo}:${VERSION} already present (ok)"
+            fi
+          done
+
       - name: Checkout rentlora-helm
         uses: actions/checkout@v4
         with:
@@ -52,15 +81,15 @@ jobs:
           token: ${{ secrets.HELM_REPO_TOKEN }}
           path: helm
 
-      - name: Write prod imageTags
+      # Prod runs ONE coherent versioned tag for every service via global.imageTag;
+      # drop the per-service SHA map so the charts fall back to it.
+      - name: Pin prod to ${{ github.event.release.tag_name }}
         env:
-          IMAGETAGS: ${{ needs.prepare.outputs.imagetags }}
           VERSION: ${{ github.event.release.tag_name }}
         run: |
           cd helm
-          echo "$IMAGETAGS" | jq -r 'to_entries[] | "\(.key) \(.value)"' | while IFS=' ' read -r svc tag; do
-            yq -i ".imageTags.\"${svc}\" = \"${tag}\"" environments/prod/values.yaml
-          done
+          yq -i ".global.imageTag = \"${VERSION}\"" environments/prod/values.yaml
+          yq -i "del(.imageTags)" environments/prod/values.yaml
           yq -i ".releaseVersion = \"${VERSION}\"" environments/prod/values.yaml
           git config user.name  "rentlora-ci"
           git config user.email "ci@rentlora.in"
