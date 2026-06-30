@@ -1,160 +1,238 @@
 # Rentlora
 
-Rentlora is a cloud-native rental marketplace built as a microservices application.
-It consists of a React frontend and five FastAPI backend services backed by
-PostgreSQL (with `pgvector` for semantic search), and is designed to run on
-Kubernetes (Amazon EKS) with event-driven communication and AWS-native cloud
-integrations.
+> A cloud-native rental marketplace built on Amazon EKS — microservices, event-driven, AI-powered.
 
-## Repositories
+![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)
+![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-pgvector-336791?logo=postgresql&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
+![AWS](https://img.shields.io/badge/AWS-EKS-FF9900?logo=amazonaws&logoColor=white)
 
-The platform is split across three repositories that sit side by side:
+---
 
-| Repo | Purpose |
-|------|---------|
-| `rentlora` (this repo) | Application source for all services + base Kubernetes manifests + CI/build workflows |
-| `rentlora-infra` | Terraform for all AWS infrastructure (VPC, EKS, RDS, SQS, ECR, IAM/IRSA) |
-| `rentlora-helm` | Helm charts for every workload; reconciled to the cluster by Argo CD (GitOps) |
+## Overview
 
-## Services
+Rentlora is a full-stack rental marketplace (think Airbnb) composed of **five FastAPI microservices** and a **React + Vite frontend**. The platform runs on Amazon EKS and leverages AWS-native services for storage, messaging, email, and AI. Services communicate asynchronously via SQS and expose a consistent REST API behind a kgateway (Envoy) edge router.
 
-```text
-rentlora/
-|-- frontend/                 # Vite + React, served by Nginx
-|-- backend/
-|   |-- property-service/     # property catalog, search, reviews, image upload (S3)
-|   |-- booking-service/      # auth/JWT, bookings, email (SES) + SMS (SNS), booking events (SQS)
-|   |-- ai-service/           # AI descriptions, RAG, and agent chat (Amazon Bedrock)
-|   |-- admin-service/        # admin operations
-|   `-- ai-search-service/    # vector search + embedding consumer (Amazon Bedrock + SQS)
-|-- kubernetes/               # base manifests (namespace, deployments, services, ingress)
-`-- docker-compose.yml        # local development
+---
+
+## Repository Map
+
+The platform spans three repositories that sit side by side:
+
+| Repository | Purpose |
+|---|---|
+| **`rentlora`** (this repo) | Application source — React frontend + 5 FastAPI services, Docker Compose, CI workflows |
+| [`rentlora-infra`](../rentlora-infra) | Terraform — VPC, EKS, RDS, SQS, S3, ECR, IRSA, Route53, ACM |
+| [`rentlora-helm`](../rentlora-helm) | Helm charts for all workloads; reconciled by Argo CD (GitOps) |
+
+---
+
+## Architecture
+
+```
+Browser (HTTPS)
+      │
+      ▼
+Route53 → NLB (ACM TLS) → kgateway (Envoy)
+                                 │
+              ┌──────────────────┼─────────────────────────────┐
+              │                  │                             │
+         /* frontend       /api/properties            /api/bookings  ...
+          (Nginx:8080)    property-service:8001       booking-service:8002
+                          property-service:8001       ai-service:8003
+                                                      admin-service:8004
+                                                      ai-search-service:8005
+                                                      user-service:8006
 ```
 
-### API layout
+### Services
 
-- Property service: `/api/properties`, `/api/search`, `/api/reviews`
-- Booking service: `/api/auth`, `/api/users`, `/api/bookings`
-- AI service: `/api/ai`
-- Admin service: `/api/admin`
-- AI search service: `/api/search/ai`
-- Health checks: `/health`, plus `/healthz` (liveness) and `/ready` (readiness)
+```
+rentlora/
+├── frontend/                  # React 18 + Vite + Tailwind CSS, served by Nginx
+└── backend/
+    ├── property-service/      # Listing catalog, reviews, image upload (S3 presigned)
+    ├── booking-service/       # Bookings, email (SES), notifications (SNS), booking events (SQS)
+    ├── ai-service/            # AI descriptions, RAG, agent chat (Amazon Bedrock)
+    ├── admin-service/         # Platform stats, user/role management
+    ├── ai-search-service/     # Vector semantic search (pgvector + Bedrock Titan Embeddings)
+    └── user-service/          # Authentication, JWT issuance, user accounts
+```
 
-## AI features
+### API Layout
 
-AI capabilities are powered by **Amazon Bedrock**:
+| Service | Base Path | Port |
+|---|---|---|
+| Property | `/api/properties`, `/api/search`, `/api/reviews` | 8001 |
+| Booking | `/api/bookings` | 8002 |
+| AI | `/api/ai` | 8003 |
+| Admin | `/api/admin` | 8004 |
+| AI Search | `/api/search/ai` | 8005 |
+| User (Auth) | `/api/auth`, `/api/users` | 8006 |
+| Health | `/health`, `/healthz`, `/ready` | all services |
 
-- **Amazon Nova Lite** — property description generation, RAG summaries, and an
-  agent chat assistant with tool calling.
-- **Amazon Titan Text Embeddings V2** — 1024-dimension vector embeddings used for
-  semantic property search via `pgvector`.
+---
 
-Model IDs are configuration values (see below), not hardcoded, so they can be
-swapped without code changes.
+## AI Features
 
-## Event-driven architecture (SQS)
+Powered by **Amazon Bedrock** — no self-hosted models, no GPU management.
 
-Services communicate asynchronously through Amazon SQS instead of blocking
-HTTP calls:
+| Model | Used For |
+|---|---|
+| **Amazon Nova Lite** | Property description generation, RAG summaries, agent chat with tool-calling |
+| **Amazon Titan Text Embeddings V2** | 1024-dimension vectors stored in pgvector for semantic property search |
 
-- **Property sync** — when a property is created or updated, `property-service`
-  publishes a message to the `property-sync` queue. `ai-search-service` consumes
-  it, generates a fresh embedding via Bedrock, and stores it. This decouples
-  writes from embedding generation and removes duplicate work.
-- **Booking events** — `booking-service` publishes `created` / `cancelled`
-  events to the `booking-events` queue for downstream consumers (audit,
-  analytics, notifications), while existing email/SMS notifications continue to
-  work as before.
+Model IDs are SSM parameters — swap models without a code change.
 
-Both flows degrade gracefully: if no queue is configured (for example, local
-development), the services fall back to their previous direct behavior.
+---
 
-## Configuration model
+## Event-Driven Architecture (SQS)
 
-Configuration is resolved at startup based on the `ENV` variable:
+Services communicate asynchronously instead of synchronous HTTP calls:
 
-- **Sensitive values** (database password, JWT secret) come from **AWS Secrets
-  Manager**.
-- **Non-sensitive values** (database host / user / name, region, S3 bucket, CDN
-  domain, SQS queue URLs, Bedrock model IDs, internal service URLs, SES sender)
-  come from **AWS Systems Manager Parameter Store**.
-- Every lookup has a **fallback default**, so a missing parameter never crashes a
-  service.
+```
+property-service   ──[property-sync queue]──▶  ai-search-service   (re-embeds on change)
+booking-service    ──[booking-events queue]──▶  downstream consumers (audit, analytics)
+```
 
-In the cluster, credentials are obtained through **IRSA (IAM Roles for Service
-Accounts)** — each pod assumes a scoped IAM role via its ServiceAccount. There
-are **no static AWS access keys** in code, environment variables, or Kubernetes
-secrets. A `.env` file is therefore **not required in production**; it remains a
-convenience for local development only.
+Both flows degrade gracefully — if no queue URL is configured (local dev), services fall back to their direct behavior.
 
-> See **[docs/CONFIGURATION.md](docs/CONFIGURATION.md)** for the full list of
-> secrets and parameters to create, the per-service IAM permissions, and the
-> Kubernetes wiring (including why no K8s `Secret` objects are needed).
+---
 
-### Secrets (AWS Secrets Manager)
+## Tech Stack
 
-| Name | Description |
-|------|-------------|
-| `/rentlora/{env}/db-password` | PostgreSQL password |
-| `/rentlora/{env}/jwt-secret` | Shared JWT signing secret |
+| Layer | Technology |
+|---|---|
+| Frontend | React 18, Vite 5, Tailwind CSS 3, React Query, React Hook Form, Zod |
+| Backend | Python 3.12, FastAPI 0.115, SQLAlchemy 2 (async), Alembic, Pydantic v2 |
+| Database | PostgreSQL (RDS) with pgvector extension for vector search |
+| Messaging | Amazon SQS |
+| Storage | Amazon S3 (presigned URL upload), CloudFront CDN |
+| AI | Amazon Bedrock (Nova Lite + Titan Embeddings V2) |
+| Email / SMS | Amazon SES, Amazon SNS |
+| Auth | JWT (HS256), bcrypt password hashing |
+| Container | Docker, multi-stage builds, non-root user |
+| Orchestration | Amazon EKS, Helm, Argo CD (GitOps), Karpenter |
+| IaC | Terraform |
+| CI | GitHub Actions (lint → test → Trivy scan → ECR push → Helm tag bump) |
 
-### Parameters (AWS Systems Manager Parameter Store)
+---
 
-| Name | Fallback default |
-|------|------------------|
-| `/rentlora/{env}/db-endpoint` | — (required in dev/prod) |
-| `/rentlora/{env}/db-user` | `postgres` |
-| `/rentlora/{env}/db-name` | `rentlora` |
-| `/rentlora/{env}/s3-image-bucket` | — (property-service) |
-| `/rentlora/{env}/cloudfront-domain` | `""` |
-| `/rentlora/{env}/internal-alb-dns` | `http://ai-service:8003` |
-| `/rentlora/{env}/property-sync-queue-url` | `""` (HTTP fallback) |
-| `/rentlora/{env}/booking-events-queue-url` | `""` (log only) |
-| `/rentlora/{env}/bedrock-nova-model-id` | `amazon.nova-lite-v1:0` |
-| `/rentlora/{env}/bedrock-embedding-model-id` | `amazon.titan-embed-text-v2:0` |
-| `/rentlora/{env}/ai-search-service-url` | `http://ai-search-service:8005` |
-| `/rentlora/{env}/booking-service-url` | `http://booking-service:8002` |
-| `/rentlora/{env}/ses-sender-email` | `no-reply@rentlora.com` |
+## Configuration
 
-`ENV` and `AWS_DEFAULT_REGION` are provided by the Kubernetes ConfigMap.
+Configuration is resolved at startup based on the `ENV` variable — no static credentials anywhere.
 
-## Local development
+- **Secrets** (DB password, JWT secret) → **AWS Secrets Manager**
+- **Non-sensitive config** (DB host, S3 bucket, SQS URLs, Bedrock model IDs, etc.) → **AWS SSM Parameter Store**
+- **AWS credentials in-cluster** → **IRSA** (each pod assumes a scoped IAM role via its ServiceAccount — zero K8s Secret objects needed)
+
+### Key Parameters
+
+| SSM Path | Description |
+|---|---|
+| `/rentlora/{env}/db-endpoint` | RDS endpoint |
+| `/rentlora/{env}/db-password` | DB password (Secrets Manager) |
+| `/rentlora/{env}/jwt-secret` | JWT signing secret (Secrets Manager) |
+| `/rentlora/{env}/s3-image-bucket` | S3 bucket for listing images |
+| `/rentlora/{env}/property-sync-queue-url` | SQS queue — property change events |
+| `/rentlora/{env}/booking-events-queue-url` | SQS queue — booking lifecycle events |
+| `/rentlora/{env}/bedrock-nova-model-id` | Amazon Nova Lite model ID |
+| `/rentlora/{env}/bedrock-embedding-model-id` | Titan Embeddings V2 model ID |
+| `/rentlora/{env}/ses-sender-email` | SES verified sender address |
+
+See [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) for the complete reference.
+
+---
+
+## Local Development
+
+### Prerequisites
+
+- Docker + Docker Compose
+- (Optional) AWS credentials for AI/SQS/SES features
+
+### Start
 
 ```bash
+git clone <repo-url>
+cd rentlora
+
 docker-compose up --build
 ```
 
-The frontend container proxies to the backend services, and each backend creates
-its tables automatically on startup. With `ENV=local`, AWS lookups are skipped
-and the fallback defaults apply.
+All services start together. Each backend service creates its database tables automatically on first boot. With `ENV=local`, AWS lookups are skipped and fallback defaults apply — no AWS account required for basic functionality.
 
-App URLs:
+### Service URLs
 
-- Frontend: `http://localhost`
-- Property service: `http://localhost:8001/health`
-- Booking service: `http://localhost:8002/health`
-- AI service: `http://localhost:8003/health`
-- Admin service: `http://localhost:8004/health`
-- AI search service: `http://localhost:8005/health`
+| Service | URL |
+|---|---|
+| Frontend | http://localhost |
+| Property | http://localhost:8001/health |
+| Booking | http://localhost:8002/health |
+| AI | http://localhost:8003/health |
+| Admin | http://localhost:8004/health |
+| AI Search | http://localhost:8005/health |
+| User / Auth | http://localhost:8006/health |
+
+---
 
 ## Deployment
 
-The target runtime is **Amazon EKS**:
+The production target is **Amazon EKS** with a GitOps delivery model:
 
-- **Terraform** (`rentlora-infra`) provisions the VPC, EKS cluster with managed
-  node groups, RDS PostgreSQL, SQS queues, ECR repositories, CloudWatch log
-  groups, and the IRSA roles — with remote state in S3 and DynamoDB locking.
-- **Container images** are multi-stage Docker builds running as a non-root user,
-  pushed to ECR by GitHub Actions with image vulnerability scanning.
-- **Helm charts** (`rentlora-helm`) define each workload (Deployment with
-  multiple replicas, Service, ServiceAccount, ConfigMap, HPA, NetworkPolicy) and
-  are reconciled by **Argo CD**.
-- **Ingress** is provisioned by the AWS Load Balancer Controller, routing
-  external traffic to the frontend and `/api/*` paths to the backend services.
+1. **Terraform** (`rentlora-infra`) provisions all AWS infrastructure — VPC, EKS cluster, RDS, SQS queues, S3 + CloudFront, ECR repositories, IRSA roles, Route53 zone, and ACM certificate.
+2. **GitHub Actions** (`build.yml`) lints, tests, scans images with Trivy, pushes to ECR, and bumps the image tag in `rentlora-helm`.
+3. **Argo CD** watches `rentlora-helm` and automatically syncs Helm chart changes to the cluster — zero-touch deployments on every merged PR.
 
-## Repo hygiene
+### Container Images
 
-- Service virtualenvs, Terraform state, and provider artifacts are ignored via
-  `.gitignore`.
-- No credentials are committed; all secrets and configuration live in AWS
-  Secrets Manager and Parameter Store.
+All images are multi-stage builds running as a non-root user (`UID 1000`). Images are scanned for vulnerabilities by Trivy before being pushed to ECR.
+
+---
+
+## CI / CD Pipeline
+
+```
+git push to main
+      │
+      ▼
+GitHub Actions — build.yml
+  ├── ruff check (lint)
+  ├── pytest (smoke tests)
+  ├── docker build (changed services only)
+  ├── trivy image scan
+  ├── docker push → ECR
+  └── git commit → rentlora-helm (bump image tag)
+                          │
+                          ▼
+                    Argo CD detects tag change
+                          │
+                          ▼
+                    kubectl rollout (verified by deploy.yml)
+```
+
+---
+
+## Security
+
+- No AWS access keys in code, environment variables, or Kubernetes Secrets — all AWS access via IRSA
+- Secrets fetched from AWS Secrets Manager at pod startup
+- Containers run as non-root (`runAsUser: 1000`, `allowPrivilegeEscalation: false`)
+- Images scanned for CVEs by Trivy in CI before every push
+- SonarCloud static analysis on every PR (`sonar-project.properties`)
+- Network policies restrict inter-service traffic
+
+---
+
+## Project Status
+
+| Component | Status |
+|---|---|
+| Backend microservices | Production-ready |
+| React frontend | Production-ready |
+| Terraform infra | Production-ready |
+| Helm charts + Argo CD | Production-ready |
+| AI / Bedrock integration | Production-ready |
+| SQS event flows | Production-ready |
